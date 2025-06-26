@@ -1,11 +1,11 @@
 import { useState } from "react";
 import CreateLobbyModal from "./CreateLobbyModal";
-
 interface DashboardProps {
   onLogout: () => void;
+  onEnterLobby: () => void;
 }
 
-const Dashboard = ({ onLogout }: DashboardProps) => {
+const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
   const [searchCode, setSearchCode] = useState("");
   const [lobbies, setLobbies] = useState([
     { id: "ABC123", name: "Lobby dos Amigos", difficulty: "Normal" },
@@ -82,13 +82,14 @@ const Dashboard = ({ onLogout }: DashboardProps) => {
             </button>
           </div>
 
-          <ul className="space-y-2">
+          <ul className="space-y-2 max-h-60 overflow-y-auto pr-2 sm:max-h-100">
             {lobbies.map((lobby) => (
               <li key={lobby.id} className="p-4 bg-gray-50 border border-gray-200 rounded-lg flex justify-between items-center">
                 <span>
                   <strong>{lobby.name}</strong> ({lobby.id}) - {lobby.difficulty}
                 </span>
-                <button className="px-4 py-2 text-primary rounded-lg bg-green-500 hover:cursor-pointer hover:bg-green-600 transition">Entrar</button>
+                <button onClick={onEnterLobby} 
+                className="px-4 py-2 text-primary rounded-lg bg-green-500 hover:cursor-pointer hover:bg-green-600 transition">Entrar</button>
               </li>
             ))}
           </ul>
