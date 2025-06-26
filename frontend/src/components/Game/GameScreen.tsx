@@ -118,30 +118,23 @@ const GameScreen = ({ difficulty, onExit }: GameScreenProps) => {
         </div>
 
         <div className={`grid gap-2 grid-cols-5 mx-auto`}>
-            {palavrasTabuleiro.map((palavra, idx) => {
-                const corCarta = coresCartas[idx];
-                const textoBranco = corCarta === "bg-black" ? "text-white" : "text-black";
-
-                return (
-                    <div
-                    key={idx}
-                    className={`w-16 h-12 md:w-28 md:h-20 rounded-lg shadow flex items-center justify-center text-center text-xs md:text-sm cursor-pointer p-1 ${corCarta} ${textoBranco}`}
-                    style={{
-                        wordBreak: "break-word",
-                        overflowWrap: "break-word",
-                        hyphens: "manual",
-                        textAlign: "center",
-                        padding: "4px",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                        textWrap: "balance",
-                    }}
-                    >
-                    <span className="break-words leading-tight">{palavra}</span>
-                    </div>
-                );
-            })}
+          {gameStarted ? (
+            palavrasTabuleiro.map((palavra, idx) => {
+              const corCarta = coresCartas[idx];
+              const textoBranco = corCarta === "bg-black" ? "text-white" : "text-black";
+              return (
+                <div key={idx} className={`w-16 h-12 md:w-28 md:h-20 rounded-lg shadow flex items-center justify-center text-center text-xs md:text-sm cursor-pointer p-1 break-words hyphens-auto ${corCarta} ${textoBranco}`}>
+                  <span className="break-words leading-tight">{palavra}</span>
+                </div>
+              );
+            })
+          ) : (
+            Array.from({ length: boardSize * boardSize }).map((_, idx) => (
+              <div key={idx} className="w-16 h-12 md:w-28 md:h-20 bg-gray-200 rounded-lg shadow flex items-center justify-center text-center text-xs md:text-sm">
+                {/* Placeholder vazio */}
+              </div>
+            ))
+          )}
         </div>
 
         <div className="hidden lg:block w-1/5 p-4 bg-white rounded-lg shadow">
