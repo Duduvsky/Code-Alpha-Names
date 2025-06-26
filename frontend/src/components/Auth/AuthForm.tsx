@@ -5,7 +5,11 @@ import RegisterForm from './RegisterForm';
 import authImg01 from '../../assets/Img01.jpeg';
 import authImg02 from '../../assets/Img02.jpg';
 
-const AuthForm = () => {
+interface AuthFormProps {
+  onLogin: () => void;
+}
+
+const AuthForm = ({ onLogin }: AuthFormProps) => {
   const [isLogin, setIsLogin] = useState(true);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [showContent, setShowContent] = useState(true);
@@ -47,7 +51,7 @@ const AuthForm = () => {
           <div className="md:w-1/2 p-8 md:p-12 relative min-h-[400px] flex items-center justify-center">
             <div className={`transition-opacity duration-50 absolute inset-0 flex items-center justify-center ${showContent ? 'opacity-100' : 'opacity-0'}`}>
               {isLogin ? (
-                <LoginForm onSwitch={toggleForm} />
+                <LoginForm onSwitch={toggleForm} onLogin={onLogin} />
               ) : (
                 <RegisterForm onSwitch={toggleForm} />
               )}
