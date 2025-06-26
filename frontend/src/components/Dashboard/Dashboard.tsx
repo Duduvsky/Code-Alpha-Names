@@ -82,7 +82,7 @@ const Dashboard = ({ onLogout }: DashboardProps) => {
             </button>
           </div>
 
-          <ul className="space-y-2">
+          <ul className="space-y-2 max-h-60 overflow-y-auto pr-2 sm:max-h-100">
             {lobbies.map((lobby) => (
               <li key={lobby.id} className="p-4 bg-gray-50 border border-gray-200 rounded-lg flex justify-between items-center">
                 <span>
