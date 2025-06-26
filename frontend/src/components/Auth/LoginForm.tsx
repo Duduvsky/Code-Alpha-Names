@@ -2,9 +2,10 @@ import { type FormEvent, useState } from 'react';
 
 interface LoginFormProps {
   onSwitch: () => void;
+  onLogin: () => void;
 }
 
-const LoginForm = ({ onSwitch }: LoginFormProps) => {
+const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -18,6 +19,7 @@ const LoginForm = ({ onSwitch }: LoginFormProps) => {
       // Lógica de login aqui
       console.log('Login:', { email, password });
       await new Promise(resolve => setTimeout(resolve, 1000));
+      onLogin();
     } catch {
       setError('Credenciais inválidas');
     } finally {
@@ -68,7 +70,7 @@ const LoginForm = ({ onSwitch }: LoginFormProps) => {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-primary text-white py-3 px-4 rounded-lg font-bold hover:bg-primary-dark transition-colors disabled:opacity-50"
+          className="w-full bg-blue-500 cursor-pointer text-white py-3 px-4 rounded-lg font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
         >
           {isLoading ? 'Entrando...' : 'Entrar'}
         </button>
