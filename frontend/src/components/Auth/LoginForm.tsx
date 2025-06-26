@@ -68,7 +68,7 @@ const LoginForm = ({ onSwitch }: LoginFormProps) => {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-primary text-white py-3 px-4 rounded-lg font-bold hover:bg-primary-dark transition-colors disabled:opacity-50"
+          className="w-full bg-blue-400 cursor-pointer text-white py-3 px-4 rounded-lg font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
         >
           {isLoading ? 'Entrando...' : 'Entrar'}
         </button>
