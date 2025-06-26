@@ -123,8 +123,22 @@ const GameScreen = ({ difficulty, onExit }: GameScreenProps) => {
               const corCarta = coresCartas[idx];
               const textoBranco = corCarta === "bg-black" ? "text-white" : "text-black";
               return (
-                <div key={idx} className={`w-16 h-12 md:w-28 md:h-20 rounded-lg shadow flex items-center justify-center text-center text-xs md:text-sm cursor-pointer p-1 break-words hyphens-auto ${corCarta} ${textoBranco}`}>
-                  <span className="break-words leading-tight">{palavra}</span>
+                <div
+                    key={idx}
+                    className={`w-16 h-12 md:w-28 md:h-20 rounded-lg shadow flex items-center justify-center text-center text-xs md:text-sm cursor-pointer p-1 ${corCarta} ${textoBranco}`}
+                    style={{
+                        wordBreak: "break-word",
+                        overflowWrap: "break-word",
+                        hyphens: "manual",
+                        textAlign: "center",
+                        padding: "4px",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                        textWrap: "balance",
+                    }}
+                    >
+                    <span className="break-words leading-tight">{palavra}</span>
                 </div>
               );
             })
