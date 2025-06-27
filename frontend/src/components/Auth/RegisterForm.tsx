@@ -1,33 +1,48 @@
 import { type FormEvent, useState } from 'react';
-
+import { useNotification } from '../Modal/useNotification';
 interface RegisterFormProps {
   onSwitch: () => void;
 }
 
 const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
-  const [name, setName] = useState('');
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { notify } = useNotification();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
+    setError('');
+
     if (password !== confirmPassword) {
       setError('As senhas não coincidem');
+      notify("As senhas não coincidem", "error");
       return;
     }
-    
+
     setIsLoading(true);
-    
+
     try {
-      // Lógica de registro aqui
-      console.log('Register:', { name, email, password });
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    } catch {
-      setError('Erro ao criar conta');
+      console.log(username, email, password, confirmPassword)
+      const API_URL = import.meta.env.VITE_API_URL;
+      const response = await fetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password }),
+      });
+
+      if (!response.ok) {
+        notify("Erro ao criar conta", "error");
+      }
+
+      notify("Conta criada com sucesso!", "success");
+      onSwitch();
+    } catch (err) {
+      setError((err as Error).message);
+      notify(`${(err as Error).message}`, "error");
     } finally {
       setIsLoading(false);
     }
@@ -52,8 +67,8 @@ const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
                 <input
                     type="text"
                     id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                     required
                 />

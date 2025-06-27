@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from 'react';
+import { useNotification } from '../Modal/useNotification';
 
 interface LoginFormProps {
   onSwitch: () => void;
@@ -10,22 +11,40 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const { notify } = useNotification();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    
+    setError('');
+
+    if (!email || !password) {
+      notify("Preencha todos os campos!", "error");
+      return;
+    }
+
     try {
-      // Lógica de login aqui
-      console.log('Login:', { email, password });
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const API_URL = import.meta.env.VITE_API_URL;
+      const response = await fetch(`${API_URL}/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+
+      if (!response.ok) {
+        notify("Credenciais inválidas", "error");
+        return;
+      }
+      
+      notify("Login realizado com sucesso!", "success");
       onLogin();
-    } catch {
-      setError('Credenciais inválidas');
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setIsLoading(false);
     }
   };
+
 
   return (
     <div className='w-99'>
