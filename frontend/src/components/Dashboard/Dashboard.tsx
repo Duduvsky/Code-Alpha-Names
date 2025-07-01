@@ -86,14 +86,25 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
   };
 
   const handleSearchLobby = async () => {
-  try {
-    const response = await fetch(`${API_URL}/lobbys?search=${searchCode}`);
-    const data = await response.json();
-    setLobbies(data);
-  } catch (err) {
-    console.error("Erro ao buscar salas:", err);
-  }
-};
+    try {
+      const response = await fetch(`${API_URL}/lobbys?search=${searchCode}`);
+      const data = await response.json();
+      setLobbies(data);
+    } catch (err) {
+      console.error("Erro ao buscar salas:", err);
+    }
+  };
+
+  const handleLogout = async () => {
+    await fetch(`${API_URL}/auth/logout`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    onLogout();
+  };
 
   return (
     <div className="min-h-screen p-8 bg-gray-100 flex flex-col gap-8">
@@ -101,7 +112,7 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
       <div className="flex justify-between items-center">
         <h1 className="text-3xl font-bold">Bem-vindo, {username}!</h1>
         <button
-          onClick={onLogout}
+          onClick={handleLogout}
           className="px-4 py-2 bg-red-500 text-white rounded-lg hover:cursor-pointer hover:bg-red-600 transition"
         >
           Sair
