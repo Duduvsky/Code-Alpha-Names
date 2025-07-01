@@ -29,12 +29,26 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
+        credentials: 'include',
       });
 
       if (!response.ok) {
         notify("Credenciais inválidas", "error");
         return;
       }
+
+      const userDataRes = await fetch(`${API_URL}/auth/me`, {
+        credentials: 'include',
+      });
+
+      if (!userDataRes.ok) {
+        notify("Erro ao buscar dados do usuário", "error");
+        return;
+      }
+
+      const userData = await userDataRes.json();
+      localStorage.setItem("userId", userData.id);
+      localStorage.setItem("username", userData.username); 
       
       notify("Login realizado com sucesso!", "success");
       onLogin();

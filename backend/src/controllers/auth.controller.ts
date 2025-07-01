@@ -59,11 +59,11 @@ export const login = async (req: Request, res: Response) => {
 
         const validPassword = await bcrypt.compare(password, user.password);
         if (!validPassword) {
-            return res.status(401).json({ message: 'Senha incorreta' });
+            res.status(401).json({ message: 'Senha incorreta' });
         }
 
         const token = createToken(user.id);
-        res.cookie('token', token, { httpOnly: true, sameSite: 'strict' });
+        res.cookie('token', token, { httpOnly: true, sameSite: 'lax' });
         res.status(200).json({ message: 'Login bem-sucedido' });
     } catch (err: any) {
         res.status(500).json({ error: err.message });
@@ -73,4 +73,18 @@ export const login = async (req: Request, res: Response) => {
 export const logout = (_req: Request, res: Response) => {
     res.clearCookie('token');
     res.status(200).json({ message: 'Logout efetuado com sucesso' });
+};
+
+export const getMe = async (req: Request, res: Response) => {
+  const token = req.cookies.token;
+  if (!token) return res.status(401).json({ message: 'Token não encontrado' });
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { id: number };
+    const result = await pool.query('SELECT id, username, email FROM users WHERE id = $1', [decoded.id]);
+    if (result.rows.length === 0) return res.status(404).json({ message: 'Usuário não encontrado' });
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(401).json({ message: 'Token inválido' });
+  }
 };

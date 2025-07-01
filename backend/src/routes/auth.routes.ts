@@ -2,7 +2,8 @@ import express from 'express';
 import {
     register,
     login,
-    logout
+    logout,
+    getMe
 } from '../controllers/auth.controller';
 
 const router = express.Router();
@@ -15,5 +16,6 @@ const asyncHandler = (fn: (req: express.Request, res: express.Response, next: ex
 router.post('/register', asyncHandler(register));
 router.post('/login', asyncHandler(login));
 router.post('/logout', logout);
+router.get('/me', asyncHandler(getMe));
 
 export default router;

@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 interface CreateLobbyModalProps {
   lobbyName: string;
   setLobbyName: (value: string) => void;
@@ -15,6 +17,23 @@ const CreateLobbyModal = ({
   onClose,
   onConfirm,
 }: CreateLobbyModalProps) => {
+  const [gameModes, setGameModes] = useState<{ id: number; mode: string }[]>([]);
+
+  useEffect(() => {
+    const fetchGameModes = async () => {
+      try {
+        const API_URL = import.meta.env.VITE_API_URL;
+        const response = await fetch(`${API_URL}/lobbys/modes/all`);
+        const data = await response.json();
+        setGameModes(data);
+      } catch (err) {
+        console.error("Erro ao buscar modos de jogo:", err);
+      }
+    };
+
+    fetchGameModes();
+  }, []);
+
   return (
     <div className="fixed inset-0 backdrop-blur-sm bg-black/20 flex items-center justify-center z-50">
       <div className="bg-white p-6 rounded-lg shadow-lg w-full max-w-md">
@@ -38,10 +57,12 @@ const CreateLobbyModal = ({
             onChange={(e) => setLobbyDifficulty(e.target.value)}
             className="w-full p-2 border border-gray-300 rounded-lg"
           >
-            <option value="Fácil">Fácil</option>
-            <option value="Normal">Normal</option>
-            <option value="Difícil">Difícil</option>
-            <option value="HARDCORE">HARDCORE</option>
+            <option value="">Selecione a Dificuldade</option>
+            {gameModes.map((mode) => (
+              <option key={mode.id} value={mode.id}>
+                {mode.mode}
+              </option>
+            ))}
           </select>
         </div>
 

@@ -17,6 +17,8 @@ CREATE TABLE IF NOT EXISTS game_modes (
 CREATE TABLE IF NOT EXISTS lobbys (
   id SERIAL PRIMARY KEY,
   code_lobby VARCHAR(10) NOT NULL UNIQUE,
+  name TEXT NOT NULL,
+  created_by INTEGER NOT NULL REFERENCES users(id),
   duration INTEGER NOT NULL,
   game_mode_id INTEGER NOT NULL REFERENCES game_modes(id),
   players_size INTEGER NOT NULL,
@@ -24,6 +26,7 @@ CREATE TABLE IF NOT EXISTS lobbys (
   finished_at TIMESTAMP,
   updated_at TIMESTAMP DEFAULT NOW()
 );
+
 
 CREATE TABLE IF NOT EXISTS users_lobbys (
   id SERIAL PRIMARY KEY,
