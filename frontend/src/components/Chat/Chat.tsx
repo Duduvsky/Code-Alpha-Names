@@ -28,6 +28,10 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
             `ws://localhost:3000/api/chat?lobbyId=${lobbyId}&userId=${userId}&username=${encodeURIComponent(username)}`
         );
 
+        socket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
         socket.onopen = () => console.log('Conexão WebSocket estabelecida');
 
         socket.onmessage = (event) => {
@@ -58,7 +62,13 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
     }, [lobbyId, userId, username]);
 
     useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+        const timer = setTimeout(() => {
+            if (messagesEndRef.current) {
+            messagesEndRef.current.scrollIntoView({ behavior: "auto" });
+            }
+        }, 100);
+        
+        return () => clearTimeout(timer);
     }, [messages]);
 
     const handleSendMessage = () => {
@@ -71,52 +81,52 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
         }
     };
 
-    return (
-        <div className="flex flex-col h-full">
-            {/* Área de mensagens com rolagem */}
-            <div className="flex-1 overflow-y-auto p-4">
-            {messages.map((msg, index) => (
-                <div key={index} className={`flex w-full ${msg.userId === userId ? 'justify-end' : 'justify-start'} mb-2`}>
-                <div className={`p-3 rounded-lg break-words ${msg.userId === userId ? 'bg-blue-500 text-white ml-16' : 'bg-gray-200 text-gray-800 mr-16'} w-fit max-w-[90%]`}>
-                    {msg.userId !== userId ? (
-                    <>
-                        <div className="font-semibold text-left">{msg.username || 'Anônimo'}</div>
-                        <div>{msg.text}</div>
-                        <div className="text-xs opacity-70 text-left">{formatTime(msg.timestamp)}</div>
-                    </>
-                    ) : (
-                    <>  
-                        <div className="font-semibold text-right">Você</div>
-                        <div>{msg.text}</div>
-                        <div className="text-xs opacity-70 text-right">{formatTime(msg.timestamp)}</div>
-                    </>
-                    )}
-                </div>
-                </div>
-            ))}
-            <div ref={messagesEndRef} />
-            </div>
-
-            {/* Área de input fixa na parte inferior */}
-            <div className="p-4 bg-white">
-            <div className="flex gap-2">
-                <input
-                type="text"
-                value={newMessage}
-                onChange={(e) => setNewMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Digite uma mensagem..."
-                />
-                <button
-                onClick={handleSendMessage}
-                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                disabled={!newMessage.trim()}
-                >
-                Enviar
-                </button>
-            </div>
-            </div>
+return (
+  <div className="flex flex-col h-full min-h-0">
+    {/* Área de mensagens com rolagem */}
+    <div className="flex-1 min-h-0 overflow-y-auto p-4">
+      {messages.map((msg, index) => (
+        <div key={index} className={`flex w-full ${msg.userId === userId ? 'justify-end' : 'justify-start'} mb-2`}>
+          <div className={`p-3 rounded-lg break-all ${msg.userId === userId ? 'bg-blue-500 text-white ml-16' : 'bg-gray-200 text-gray-800 mr-16'} w-fit max-w-[90%]`}>
+            {msg.userId !== userId ? (
+              <>
+                <div className="font-semibold text-left">{msg.username || 'Anônimo'}</div>
+                <div className="whitespace-pre-wrap">{msg.text}</div>
+                <div className="text-xs opacity-70 text-left">{formatTime(msg.timestamp)}</div>
+              </>
+            ) : (
+              <>
+                <div className="font-semibold text-right">Você</div>
+                <div className="whitespace-pre-wrap">{msg.text}</div>
+                <div className="text-xs opacity-70 text-right">{formatTime(msg.timestamp)}</div>
+              </>
+            )}
+          </div>
         </div>
-        );
+      ))}
+      <div ref={messagesEndRef} />
+    </div>
+
+    {/* Área de input fixa */}
+    <div className="p-4 bg-white">
+      <div className="flex gap-2">
+        <input
+          type="text"
+          value={newMessage}
+          onChange={(e) => setNewMessage(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+          className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Digite uma mensagem..."
+        />
+        <button
+          onClick={handleSendMessage}
+          className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+          disabled={!newMessage.trim()}
+        >
+          Enviar
+        </button>
+      </div>
+    </div>
+  </div>
+);
 }
