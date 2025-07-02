@@ -17,6 +17,7 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
     name: string;
     difficulty_name: "fácil" | "normal" | "difícil" | "HARDCORE";
     code_lobby: string;
+    created_by: Number;
     creator_name: string;
   }
   
@@ -30,18 +31,18 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
   const [lobbyName, setLobbyName] = useState("");
   const [lobbyDifficulty, setLobbyDifficulty] = useState<"fácil" | "normal" | "difícil" | "HARDCORE">("normal");
 
-  useEffect(() => {
-    const fetchLobbys = async () => {
-      try {
-        const url = searchCode ? `${API_URL}/lobbys?search=${searchCode}` : `${API_URL}/lobbys`;
-        const response = await fetch(url);
-        const data = await response.json();
-        setLobbies(data);
-      } catch (err) {
-        console.error("Erro ao buscar salas:", err);
-      }
-    };
+  const fetchLobbys = async () => {
+    try {
+      const url = searchCode ? `${API_URL}/lobbys?search=${searchCode}` : `${API_URL}/lobbys`;
+      const response = await fetch(url);
+      const data = await response.json();
+      setLobbies(data);
+    } catch (err) {
+      console.error("Erro ao buscar salas:", err);
+    }
+  };
 
+  useEffect(() => {
     fetchLobbys();
 
     if (!searchCode) {
@@ -116,6 +117,23 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
     onLogout();
   };
 
+  const handleDeleteLobby = async (lobbyId: number) => {
+    try {
+      const API_URL = import.meta.env.VITE_API_URL;
+      await fetch(`${API_URL}/lobbys/${lobbyId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ userId: localStorage.getItem("userId") })
+      });
+      // Se quiser atualizar a lista na hora:
+      fetchLobbys()
+    } catch (err) {
+      console.error("Erro ao deletar lobby", err);
+    }
+  };
+
   return (
     <div className="min-h-screen p-8 bg-gray-100 flex flex-col gap-8">
       {/* Cabeçalho */}
@@ -165,17 +183,29 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
 
           <ul className="space-y-2 max-h-60 overflow-y-auto pr-2 sm:max-h-100">
             {lobbies.map((lobby) => (
-              <li key={lobby.id} className="p-4 bg-gray-50 border border-gray-200 rounded-lg flex justify-between items-center">
-                <span>
-                  <strong>{lobby.name}</strong> ({lobby.code_lobby}) - {lobby.creator_name} - {lobby.difficulty_name}
-                </span>
-                <button 
-                  onClick={() => onEnterLobby(lobby.code_lobby, lobby.difficulty_name)}
-                  className="px-4 py-2 text-primary rounded-lg bg-green-500 hover:cursor-pointer hover:bg-green-600 transition"
-                >
-                  Entrar
-                </button>
-              </li>
+              <div key={lobby.id} className="flex justify-between items-center bg-white shadow p-3 rounded mb-2">
+                <div>
+                  <p className="font-semibold">{lobby.name} ({lobby.code_lobby}) - {lobby.creator_name} - {lobby.difficulty_name}</p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => onEnterLobby(lobby.code_lobby, lobby.difficulty_name)}
+                    className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
+                  >
+                    Entrar
+                  </button>
+
+                  {lobby.created_by === Number(localStorage.getItem("userId")) && (
+                    <button
+                      onClick={() => handleDeleteLobby(lobby.id)}
+                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                    >
+                      Deletar
+                    </button>
+                  )}
+                </div>
+              </div>
             ))}
           </ul>
         </div>

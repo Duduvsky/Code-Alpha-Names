@@ -41,8 +41,19 @@ export const getLobbys = async (req: Request, res: Response) => {
   const { search } = req.query;
   try {
     const query = search
-      ? `SELECT lobbys.*, users.username as creator_name, game_modes.mode as difficulty_name FROM lobbys JOIN users ON lobbys.created_by = users.id JOIN game_modes ON lobbys.game_mode_id = game_modes.id WHERE LOWER(code_lobby) LIKE $1 OR LOWER(name) LIKE $1 ORDER BY lobbys.id DESC`
-      : `SELECT lobbys.*, users.username as creator_name, game_modes.mode as difficulty_name FROM lobbys JOIN users ON lobbys.created_by = users.id JOIN game_modes ON lobbys.game_mode_id = game_modes.id ORDER BY lobbys.id DESC`;
+      ? `SELECT lobbys.*, users.username as creator_name, game_modes.mode as difficulty_name
+         FROM lobbys
+         JOIN users ON lobbys.created_by = users.id
+         JOIN game_modes ON lobbys.game_mode_id = game_modes.id
+         WHERE (LOWER(code_lobby) LIKE $1 OR LOWER(name) LIKE $1) AND lobbys.finished_at IS NULL
+         ORDER BY lobbys.id DESC`
+      : `SELECT lobbys.*, users.username as creator_name, game_modes.mode as difficulty_name
+         FROM lobbys
+         JOIN users ON lobbys.created_by = users.id
+         JOIN game_modes ON lobbys.game_mode_id = game_modes.id
+         WHERE lobbys.finished_at IS NULL
+         ORDER BY lobbys.id DESC`;
+    
     const params = search ? [`%${(search as string).toLowerCase()}%`] : [];
     const result = await pool.query(query, params);
     res.json(result.rows);
@@ -50,6 +61,7 @@ export const getLobbys = async (req: Request, res: Response) => {
     res.status(500).json({ message: 'Erro ao listar lobbys', error: err });
   }
 };
+
 
 export const getLobbyByCode = async (req: Request, res: Response) => {
   const { code } = req.params;
@@ -91,4 +103,27 @@ export const getGameModes = async (req: Request, res: Response) => {
   } catch (err) {
     res.status(500).json({ message: 'Erro ao listar modos de jogo', error: err });
   }
+};
+
+export const deleteLobby = async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const userId = req.body.userId; // vindo do body, ou do token se já tiver autenticação centralizada
+
+    try {
+        const result = await pool.query('SELECT created_by FROM lobbys WHERE id = $1', [id]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: "Lobby não encontrado" });
+        }
+
+        if (result.rows[0].created_by !== Number(userId)) {
+            return res.status(403).json({ message: "Você não tem permissão para deletar este lobby" });
+        }
+
+        await pool.query('DELETE FROM lobbys WHERE id = $1', [id]);
+        return res.status(200).json({ message: "Lobby deletado com sucesso" });
+    } catch (err) {
+        console.error(err);
+        return res.status(500).json({ message: "Erro ao deletar lobby" });
+    }
 };

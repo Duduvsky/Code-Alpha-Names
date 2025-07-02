@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createLobby, getLobbys, getLobbyByCode, updateLobbySize, updateLobbyDuration, getGameModes } from '../controllers/lobby.controller';
+import { createLobby, getLobbys, getLobbyByCode, updateLobbySize, updateLobbyDuration, getGameModes, deleteLobby } from '../controllers/lobby.controller';
 
 const router = Router();
 
@@ -12,5 +12,6 @@ router.get('/:code', asyncHandler(getLobbyByCode));
 router.patch('/:id/size', asyncHandler(updateLobbySize));
 router.patch('/:id/duration', asyncHandler(updateLobbyDuration));
 router.get('/modes/all', asyncHandler(getGameModes));
+router.delete("/:id", asyncHandler(deleteLobby));
 
 export default router;
