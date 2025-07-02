@@ -1,19 +1,21 @@
 import { useState, useEffect } from "react";
 import CreateLobbyModal from "./CreateLobbyModal";
+
 interface DashboardProps {
   onLogout: () => void;
-  onEnterLobby: () => void;
+  onEnterLobby: (lobbyId: string, difficulty: "fácil" | "normal" | "difícil" | "HARDCORE") => void;
 }
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
   const [searchCode, setSearchCode] = useState("");
-    const username = localStorage.getItem("username") || "Usuário";
+  const username = localStorage.getItem("username") || "Usuário";
+  
   interface Lobby {
     id: number;
     name: string;
-    difficulty_name: string;
+    difficulty_name: "fácil" | "normal" | "difícil" | "HARDCORE";
     code_lobby: string;
     creator_name: string;
   }
@@ -26,12 +28,11 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
 
   const [showModal, setShowModal] = useState(false);
   const [lobbyName, setLobbyName] = useState("");
-  const [lobbyDifficulty, setLobbyDifficulty] = useState("Normal");
+  const [lobbyDifficulty, setLobbyDifficulty] = useState<"fácil" | "normal" | "difícil" | "HARDCORE">("normal");
 
   useEffect(() => {
     const fetchLobbys = async () => {
       try {
-        const API_URL = import.meta.env.VITE_API_URL;
         const url = searchCode ? `${API_URL}/lobbys?search=${searchCode}` : `${API_URL}/lobbys`;
         const response = await fetch(url);
         const data = await response.json();
@@ -52,7 +53,7 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
   const closeModal = () => {
     setShowModal(false);
     setLobbyName("");
-    setLobbyDifficulty("Normal");
+    setLobbyDifficulty("normal");
   };
 
   const handleCreateLobby = async () => {
@@ -73,13 +74,18 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
           created_by: userId,
         }),
       });
+      
       if (!response.ok) {
         console.error("Erro ao criar lobby");
         return;
       }
+      
       const data = await response.json();
       setLobbies((prev) => [data, ...prev]);
       closeModal();
+      
+      // Entra automaticamente no lobby criado
+      onEnterLobby(data.code_lobby, data.difficulty_name);
     } catch (err) {
       console.error("Erro ao criar lobby:", err);
     }
@@ -96,10 +102,14 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
   };
 
   const handleLogout = async () => {
-    await fetch(`${API_URL}/auth/logout`, {
-      method: 'POST',
-      credentials: 'include',
-    });
+    try {
+      await fetch(`${API_URL}/auth/logout`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+    } catch (error) {
+      console.error("Erro ao fazer logout:", error);
+    }
 
     localStorage.removeItem('userId');
     localStorage.removeItem('username');
@@ -120,7 +130,6 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        
         {/* Área de Lobbys */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-2xl font-bold mb-4">Lobbys</h2>
@@ -160,8 +169,12 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
                 <span>
                   <strong>{lobby.name}</strong> ({lobby.code_lobby}) - {lobby.creator_name} - {lobby.difficulty_name}
                 </span>
-                <button onClick={onEnterLobby} 
-                className="px-4 py-2 text-primary rounded-lg bg-green-500 hover:cursor-pointer hover:bg-green-600 transition">Entrar</button>
+                <button 
+                  onClick={() => onEnterLobby(lobby.code_lobby, lobby.difficulty_name)}
+                  className="px-4 py-2 text-primary rounded-lg bg-green-500 hover:cursor-pointer hover:bg-green-600 transition"
+                >
+                  Entrar
+                </button>
               </li>
             ))}
           </ul>
@@ -185,7 +198,7 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Modal de Criação de Lobby */}
       {showModal && (
         <CreateLobbyModal
           lobbyName={lobbyName}

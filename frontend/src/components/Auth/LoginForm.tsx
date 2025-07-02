@@ -51,6 +51,7 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
       localStorage.setItem("username", userData.username); 
       
       notify("Login realizado com sucesso!", "success");
+      console.log("API_URL:", import.meta.env.VITE_API_URL);
       onLogin();
     } catch (err) {
       setError((err as Error).message);

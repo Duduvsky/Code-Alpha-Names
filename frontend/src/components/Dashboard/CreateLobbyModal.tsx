@@ -3,8 +3,8 @@ import { useEffect, useState } from "react";
 interface CreateLobbyModalProps {
   lobbyName: string;
   setLobbyName: (value: string) => void;
-  lobbyDifficulty: string;
-  setLobbyDifficulty: (value: string) => void;
+  lobbyDifficulty: "fácil" | "normal" | "difícil" | "HARDCORE";
+  setLobbyDifficulty: (value: "fácil" | "normal" | "difícil" | "HARDCORE") => void;
   onClose: () => void;
   onConfirm: () => void;
 }
@@ -54,7 +54,7 @@ const CreateLobbyModal = ({
           <label className="block mb-2 text-gray-700">Dificuldade</label>
           <select
             value={lobbyDifficulty}
-            onChange={(e) => setLobbyDifficulty(e.target.value)}
+            onChange={(e) => setLobbyDifficulty(e.target.value as "fácil" | "normal" | "difícil" | "HARDCORE")}
             className="w-full p-2 border border-gray-300 rounded-lg"
           >
             <option value="">Selecione a Dificuldade</option>
