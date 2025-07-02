@@ -19,20 +19,16 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
     const ws = useRef<WebSocket | null>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Formatar hora
     const formatTime = (date: Date) => {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
     useEffect(() => {
-        // Conexão WebSocket
         const socket = new WebSocket(
             `ws://localhost:3000/api/chat?lobbyId=${lobbyId}&userId=${userId}&username=${encodeURIComponent(username)}`
         );
 
-        socket.onopen = () => {
-            console.log('Conexão WebSocket estabelecida');
-        };
+        socket.onopen = () => console.log('Conexão WebSocket estabelecida');
 
         socket.onmessage = (event) => {
             const data = JSON.parse(event.data);
@@ -52,9 +48,7 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
             }
         };
 
-        socket.onclose = () => {
-            console.log('Conexão WebSocket fechada');
-        };
+        socket.onclose = () => console.log('Conexão WebSocket fechada');
 
         ws.current = socket;
 
@@ -63,7 +57,6 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
         };
     }, [lobbyId, userId, username]);
 
-    // Scroll automático
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
@@ -80,47 +73,50 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
 
     return (
         <div className="flex flex-col h-full">
-            <div className="flex-1 overflow-y-auto p-4 space-y-2">
-                {messages.map((msg, index) => (
-                    <div
-                        key={index}
-                        className={`flex ${msg.userId === userId ? 'justify-end' : 'justify-start'}`}
-                    >
-                        <div
-                            className={`max-w-xs p-3 rounded-lg ${msg.userId === userId
-                                ? 'bg-blue-500 text-white'
-                                : 'bg-gray-200 text-gray-800'}`}
-                        >
-                            <div className="font-semibold">
-                                {msg.userId === userId ? 'Você' : msg.username || 'Anônimo'}
-                            </div>
-                            <div>{msg.text}</div>
-                            <div className="text-xs opacity-70">
-                                {formatTime(msg.timestamp)}
-                            </div>
-                        </div>
-                    </div>
-                ))}
-                <div ref={messagesEndRef} />
+            {/* Área de mensagens com rolagem */}
+            <div className="flex-1 overflow-y-auto p-4">
+            {messages.map((msg, index) => (
+                <div key={index} className={`flex w-full ${msg.userId === userId ? 'justify-end' : 'justify-start'} mb-2`}>
+                <div className={`p-3 rounded-lg break-words ${msg.userId === userId ? 'bg-blue-500 text-white ml-16' : 'bg-gray-200 text-gray-800 mr-16'} w-fit max-w-[90%]`}>
+                    {msg.userId !== userId ? (
+                    <>
+                        <div className="font-semibold text-left">{msg.username || 'Anônimo'}</div>
+                        <div>{msg.text}</div>
+                        <div className="text-xs opacity-70 text-left">{formatTime(msg.timestamp)}</div>
+                    </>
+                    ) : (
+                    <>  
+                        <div className="font-semibold text-right">Você</div>
+                        <div>{msg.text}</div>
+                        <div className="text-xs opacity-70 text-right">{formatTime(msg.timestamp)}</div>
+                    </>
+                    )}
+                </div>
+                </div>
+            ))}
+            <div ref={messagesEndRef} />
             </div>
 
-            <div className="p-4 border-t flex gap-2">
+            {/* Área de input fixa na parte inferior */}
+            <div className="p-4 bg-white">
+            <div className="flex gap-2">
                 <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                    className="flex-1 p-2 border rounded-lg"
-                    placeholder="Digite uma mensagem..."
+                type="text"
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
+                className="flex-1 p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Digite uma mensagem..."
                 />
                 <button
-                    onClick={handleSendMessage}
-                    className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
-                    disabled={!newMessage.trim()}
+                onClick={handleSendMessage}
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                disabled={!newMessage.trim()}
                 >
-                    Enviar
+                Enviar
                 </button>
             </div>
+            </div>
         </div>
-    );
+        );
 }
