@@ -3,8 +3,8 @@ import Chat from "../Chat/Chat";
 import type { GameState, Team, PlayerRole, CardState } from "../../types/game";
 import { useWebSocket } from '../../hooks/useWebSocket';
 
-import timeA from '../../../public/Codenames BlueTeam - Spyfamily.png'
-import timeB from '../../../public/Codenames AnyBond RedTeam - SpyFamily.png'
+import timeA from '../../../public/Codenames BlueTeam - Spyfamily 1.png'
+import timeB from '../../../public/Codenames AnyBond RedTeam - SpyFamily 1.png'
 import imgBG from '../../../public/Codenames BG.png'
 
 interface GameScreenProps {
