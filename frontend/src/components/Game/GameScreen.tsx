@@ -3,6 +3,10 @@ import Chat from "../Chat/Chat";
 import type { GameState, Team, PlayerRole, CardState } from "../../types/game";
 import { useWebSocket } from '../../hooks/useWebSocket';
 
+import timeA from '../../../public/Codenames BlueTeam - Spyfamily.png'
+import timeB from '../../../public/Codenames AnyBond RedTeam - SpyFamily.png'
+import imgBG from '../../../public/Codenames BG.png'
+
 interface GameScreenProps {
   difficulty: "fácil" | "normal" | "difícil" | "HARDCORE";
   onExit: () => void;
@@ -91,7 +95,16 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
   };
   
   return (
-    <div className="h-screen flex flex-col p-2 md:p-4 bg-gray-100 overflow-hidden">
+    <div className="h-screen flex flex-col p-2 md:p-4 overflow-hidden">
+
+      <div className="absolute inset-0 -z-10">
+        <img 
+          src= {imgBG}
+          alt="Background"
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-opacity-30"></div> {/* Overlay escuro */}
+      </div>
       
       {/* Topo */}
       <div className="flex justify-between items-center pb-2 md:pb-4">
@@ -109,18 +122,37 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
         {/* Times */}
         <div className="hidden md:flex flex-col gap-4 w-1/5 min-h-0">
             {[
-                { team: 'A', name: 'Azul', color: 'blue', score: gameState.scores.A, spymaster: spymasterA, agents: teamA.filter(p=>p.role==='operative') },
-                { team: 'B', name: 'Vermelho', color: 'red', score: gameState.scores.B, spymaster: spymasterB, agents: teamB.filter(p=>p.role==='operative') }
+                { team: 'A', name: 'Azul', color: 'blue', score: gameState.scores.A, spymaster: spymasterA, agents: teamA.filter(p=>p.role==='operative'), image: timeA },
+                { team: 'B', name: 'Vermelho', color: 'red', score: gameState.scores.B, spymaster: spymasterB, agents: teamB.filter(p=>p.role==='operative'), image: timeB }
             ].map(t => (
                 <div key={t.team} className="flex flex-col bg-white rounded shadow p-2 space-y-2">
+                    {/* Imagem do time - adicionada aqui */}
+                    <div className="flex h-[100px] justify-center overflow-hidden">
+                      <img 
+                          src={t.image} 
+                          alt={`Time ${t.name}`} 
+                          className="w-full h-full object-cover"
+                          style={{ objectPosition: '0px -50px' }} /* Ajuste este valor para cima/baixo */
+                      />
+                    </div>
                     <div className={`flex justify-between items-center font-bold text-${t.color}-500`}>
                         <span>Time {t.name} (Faltam: {t.score})</span>
                     </div>
                     <div className="text-xs">Espião: {t.spymaster?.username || 'Vago'}</div>
-                    {!t.spymaster && gameState.gamePhase === 'waiting' && <button onClick={() => handleJoinTeam(t.team as Team, 'spymaster')} className={`text-xs bg-${t.color}-500 text-white px-2 py-1 rounded`}>Ser Espião</button>}
-                    <div className="text-xs mt-1">Agentes:</div>
-                    {t.agents.map(p => <span key={p.id} className="text-xs bg-gray-200 px-2 py-1 rounded">{p.username}</span>)}
-                    {gameState.gamePhase === 'waiting' && <button onClick={() => handleJoinTeam(t.team as Team, 'operative')} className={`mt-1 text-xs bg-${t.color}-500 text-white px-2 py-1 rounded`}>Ser Agente</button>}
+                    <div className="flex items-center gap-1 text-xs">
+                        <span className="whitespace-nowrap">Agentes:</span>
+                        <div className="flex flex-wrap gap-1">
+                            {t.agents.map(p => (
+                                <span key={p.id} className="bg-gray-200 px-2 py-0.5 rounded whitespace-nowrap">
+                                    {p.username}
+                                </span>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-2 justify-center align-center">
+                      {!t.spymaster && gameState.gamePhase === 'waiting' && <button onClick={() => handleJoinTeam(t.team as Team, 'spymaster')} className={`text-xs bg-${t.color}-500 text-white px-2 py-1 rounded`}>Ser Espião</button>}
+                      {gameState.gamePhase === 'waiting' && <button onClick={() => handleJoinTeam(t.team as Team, 'operative')} className={`text-xs bg-${t.color}-500 text-white px-2 py-1 rounded`}>Ser Agente</button>}
+                    </div>
                 </div>
             ))}
         </div>
@@ -131,26 +163,46 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
                 {gameState.gamePhase === 'ended' ? `FIM DE JOGO! Time ${gameState.winner === 'A' ? 'Azul' : 'Vermelho'} venceu!` : `Turno: Time ${gameState.currentTurn === 'A' ? 'Azul' : 'Vermelho'}`}
             </div>
             <div className="grid grid-cols-5 gap-3 mx-auto rounded-lg">
-                {gameState.board.map((card) => {
-                    const bgColorClass = getCardBgColor(card.color);
-                    const cardStyle = card.revealed 
-                        ? `shadow-inner brightness-75 ${bgColorClass}`
-                        : isSpymaster
-                            ? `${bgColorClass} bg-opacity-40 border-2 border-dashed`
-                            : 'bg-white hover:bg-gray-200 border-2 border-solid border-gray-300';
-                    const textColorClass = !card.revealed && isSpymaster && (card.color === 'blue' || card.color === 'red' || card.color === 'assassin') ? 'text-white' : 'text-black';
+              {gameState.board.map((card) => {
+                  const bgColorClass = getCardBgColor(card.color);
+                  const cardStyle = card.revealed 
+                      ? `shadow-inner brightness-75 ${bgColorClass} p-0.5 md:p-1.5`
+                      : isSpymaster
+                          ? `p-0.5 md:p-1.5 ${bgColorClass} bg-opacity-30`
+                          : 'bg-white hover:bg-gray-100 p-0.5 md:p-1.5';
+                  
+                  const innerCardStyle = card.revealed
+                      ? 'w-full h-full rounded-sm'
+                      : isSpymaster
+                          ? 'w-full h-full rounded-sm border-2 border-dashed border-black border-opacity-30'
+                          : 'w-full h-full rounded-sm border-2 border-solid border-gray-300';
 
-                    return (
-                        <button key={card.word} disabled={!isMyTurnToGuess || card.revealed} onClick={() => handleMakeGuess(card.word)} style={{ wordBreak: "break-word" }} className={`w-17 h-10 md:w-30 md:h-18 rounded-md flex items-center justify-center p-1 transition-all duration-200 ${cardStyle} ${textColorClass} disabled:opacity-50 disabled:cursor-not-allowed`}>
-                            <div className="font-medium text-center text-xs md:text-base">{card.word}</div>
-                        </button>
-                    );
-                })}
-            </div>
+                  const textColorClass = !card.revealed && isSpymaster && (card.color === 'blue' || card.color === 'red' || card.color === 'assassin') 
+                      ? 'text-white' 
+                      : 'text-black';
+
+                  return (
+                      <button 
+                          key={card.word} 
+                          disabled={!isMyTurnToGuess || card.revealed} 
+                          onClick={() => handleMakeGuess(card.word)} 
+                          className={`rounded-md flex items-center justify-center transition-all duration-200 ${cardStyle} disabled:opacity-50 disabled:cursor-not-allowed`}
+                      >
+                          <div className={`${innerCardStyle} flex items-center justify-center`}>
+                              <div style={{ wordBreak: "break-word" }} className={`w-17 h-10 text-xs md:text-lg md:w-30 md:h-14 rounded-md flex items-center justify-center p-1 transition-all duration-200 ${cardStyle} ${textColorClass} disabled:opacity-50 disabled:cursor-not-allowed`}>
+                                  {card.word.split(' ').map((word, i) => (
+                                      <span key={i} className="block">{word}</span>
+                                  ))}
+                              </div>
+                          </div>
+                      </button>
+                  );
+              })}
+          </div>
 
             {/* Dica / Input da Dica */}
             {isMyTurnToGiveClue ? (
-                <div className="flex justify-center gap-2 mt-3 flex-wrap items-center bg-white p-3 rounded-lg shadow-sm">
+                <div className="flex justify-center gap-2 mt-2 flex-wrap items-center bg-white p-3 rounded-lg shadow-sm">
                     <span className="font-medium">Sua vez de dar a dica:</span> 
                     <input type="text" value={clueWord} onChange={e => setClueWord(e.target.value)} placeholder="Palavra..." className="p-2 border rounded w-32"/>
                     <input type="number" value={clueCount} onChange={e => setClueCount(Number(e.target.value))} min={1} className="p-2 border rounded w-16"/>
@@ -168,22 +220,23 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
             ) : null}
         </div>
 
-        {/* Log e Chat (Desktop) */}
+        {/* Log (Desktop) */}
         <div className="hidden md:flex flex-col w-1/5 min-h-0 gap-4">
-            <div className="bg-white rounded shadow p-2 flex-1 flex flex-col">
+            <div className="bg-white rounded shadow p-2 flex-1 flex flex-col min-h-[20vh]" style={{ height: '20vh' }}>
                 <div className="font-bold mb-2">Log do Jogo</div>
                 <div className="flex-1 bg-gray-100 rounded p-2 overflow-y-auto text-sm space-y-1">
                     {(gameState.log || []).map((entry, i) => <div key={i}>{entry}</div>)}
                 </div>
             </div>
-            {/* Altura do Chat ajustada aqui */}
-            <div className="bg-white rounded shadow p-2 flex flex-col" style={{height: '250px'}}>
-                <div className="font-bold mb-2">Chat do Jogo</div>
-                <div className="flex-1 overflow-hidden">
-                    <Chat lobbyId={lobbyId} userId={userId} username={username} />
-                </div>
-            </div>
         </div>
+      </div>
+
+      {/* Altura do Chat ajustada aqui */}
+      <div className="hidden md:flex bg-white rounded shadow p-2 flex flex-col mt-10" style={{ height: '230px' }}>
+          <div className="font-bold mb-2">Chat do Jogo</div>
+          <div className="flex-1 overflow-hidden">
+              <Chat lobbyId={lobbyId} userId={userId} username={username} />
+          </div>
       </div>
       
       {/* Tabs Mobile */}
