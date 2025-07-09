@@ -1,10 +1,12 @@
-// src/App.tsx
-
 import { useState, useEffect } from "react";
 import AuthForm from "./components/Auth/AuthForm";
 import Dashboard from "./components/Dashboard/Dashboard";
 import GameScreen from "./components/Game/GameScreen";
 import { WebSocketProvider } from "./context/WebSocketContext";
+
+// Importando os componentes para a prevenção de múltiplas abas
+import { useMultiTabPrevention } from "./hooks/useMultiTabPrevention";
+import { MultiTabBlocker } from "./components/Game/MultiTabBlocker";
 
 type Difficulty = "Fácil" | "Normal" | "Difícil" | "HARDCORE";
 
@@ -13,24 +15,27 @@ interface ActiveLobby {
   difficulty: Difficulty;
 }
 
+const API_URL = import.meta.env.VITE_API_URL;
+
 function App() {
+  const sessionState = useMultiTabPrevention();
+
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<"dashboard" | "game">("dashboard");
   const [selectedLobby, setSelectedLobby] = useState<ActiveLobby | null>(null);
   const [gameWsUrl, setGameWsUrl] = useState<string | null>(null);
 
   useEffect(() => {
-    // Função para verificar se o usuário já está autenticado
     const checkAuth = async () => {
       try {
-        const res = await fetch(`/api/auth/me`, { credentials: 'include' });
+        const res = await fetch(`${API_URL}/auth/me`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           localStorage.setItem("userId", data.id);
           localStorage.setItem("username", data.username);
           setIsAuthenticated(true);
         } else {
-          handleLogout(false); // Chama o logout sem fazer request de API
+          handleLogout(false);
         }
       } catch {
         setIsAuthenticated(false);
@@ -39,24 +44,17 @@ function App() {
 
     checkAuth();
     
-    // ===================================================================
-    // == 1. RESTAURAR ESTADO AO CARREGAR A PÁGINA
-    // ===================================================================
-    // Esta parte verifica se o usuário estava em um lobby antes de recarregar.
     const savedLobby = sessionStorage.getItem('activeLobby');
     if (savedLobby) {
       try {
         const lobbyData: ActiveLobby = JSON.parse(savedLobby);
-        // Se encontramos dados salvos, restauramos o estado do jogo.
-        // Chamamos a mesma função de entrar no jogo para manter a lógica centralizada.
         handleEnterGame(lobbyData.id, lobbyData.difficulty, true);
       } catch (error) {
         console.error("Erro ao restaurar lobby salvo:", error);
-        sessionStorage.removeItem('activeLobby'); // Limpa dados inválidos
+        sessionStorage.removeItem('activeLobby');
       }
     }
-
-  }, []); // O array vazio [] garante que isso só rode uma vez, quando o App monta.
+  }, []);
 
   const handleLogin = () => {
     setIsAuthenticated(true);
@@ -65,29 +63,23 @@ function App() {
   const handleLogout = async (performApiCall = true) => {
     if (performApiCall) {
       try {
-        await fetch(`/api/auth/logout`, { method: 'POST', credentials: 'include' });
+        await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
       } catch(error) {
-        console.error("Erro na chamada de logout da API, limpando o estado localmente.", error);
+        console.error("Erro na chamada de logout da API:", error);
       }
     }
-    // Limpeza completa do estado
     localStorage.removeItem("userId");
     localStorage.removeItem("username");
-    sessionStorage.removeItem('activeLobby'); // Limpa o lobby salvo
+    sessionStorage.removeItem('activeLobby');
     setIsAuthenticated(false);
     setCurrentScreen("dashboard");
     setSelectedLobby(null);
     setGameWsUrl(null);
   };
 
-  // ===================================================================
-  // == 2. SALVAR ESTADO AO ENTRAR EM UM LOBBY
-  // ===================================================================
   const handleEnterGame = (lobbyId: string, difficulty: Difficulty, isRestoring = false) => {
     const lobbyData: ActiveLobby = { id: lobbyId, difficulty };
-    
-    // Salva os dados do lobby no sessionStorage para sobreviver ao reload
-    if (!isRestoring) { // Só salva se não estiver restaurando, para evitar redundância
+    if (!isRestoring) { 
         sessionStorage.setItem('activeLobby', JSON.stringify(lobbyData));
     }
     
@@ -103,18 +95,28 @@ function App() {
     setCurrentScreen("game");
   };
 
-  // ===================================================================
-  // == 3. LIMPAR ESTADO AO SAIR DO LOBBY
-  // ===================================================================
   const handleExitGame = () => {
-    // Limpa o estado salvo para não voltar para o jogo ao recarregar
     sessionStorage.removeItem('activeLobby');
-    
     setCurrentScreen("dashboard");
     setSelectedLobby(null);
     setGameWsUrl(null); 
   };
 
+  // 1. Renderiza a tela de bloqueio se for uma aba duplicada
+  if (sessionState === 'BLOCKED') {
+    return <MultiTabBlocker />;
+  }
+
+  // 2. Renderiza uma tela de carregamento enquanto verifica
+  if (sessionState === 'CHECKING') {
+    return (
+        <div className="h-screen flex flex-col items-center justify-center bg-gray-100">
+            <div className="loader ease-linear rounded-full border-4 border-t-4 border-gray-300 h-12 w-12"></div>
+        </div>
+    );
+  }
+
+  // 3. Se a aba for ativa, renderiza o conteúdo principal
   const renderContent = () => {
     if (!isAuthenticated) {
       return <AuthForm onLogin={handleLogin} />;

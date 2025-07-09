@@ -24,10 +24,10 @@ export interface GameState {
     currentTurn: Team;
     gamePhase: GamePhase;
     currentClue: { word: string; count: number } | null;
+    guessesRemaining: number;
     scores: { A: number; B: number };
     winner: Team | null;
     creatorId: string;
     turnTimeRemaining: number | null;
-    // Adicione um log se quiser que o servidor o gerencie
     log: string[]; 
 }

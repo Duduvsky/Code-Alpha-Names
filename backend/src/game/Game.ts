@@ -118,6 +118,10 @@ export class Game {
         this.fetchLobbyDbId(); 
     }
 
+    public getPlayerIds(): string[] {
+        return Array.from(this.players.keys());
+    }
+
     private async fetchLobbyDbId() {
         try {
             const result = await pool.query('SELECT id FROM lobbys WHERE code_lobby = $1', [this.lobbyId]);
@@ -190,16 +194,12 @@ export class Game {
                         this.broadcastMessage({ type: 'CREATOR_RECONNECTED', payload: { message: 'O criador da sala retornou! O jogo continua.' } });
                     }
                 } else {
-                    // ===================================================================
-                    // LÓGICA AJUSTADA PARA NOVOS JOGADORES
-                    // ===================================================================
                     if (this.gamePhase !== 'waiting') {
-                        console.log(`[Game] Bloqueando novo jogador (${username}) de entrar em jogo em andamento.`);
+                        console.log(`[Game] Bloqueando novo jogador (${username}) de entrar em jogo em andamento (fase: ${this.gamePhase}).`);
                         ws.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Este jogo já começou. Você não pode entrar.' } }));
                         ws.close(1008, 'Game already in progress');
                         return;
                     }
-
                     if (this.players.size >= this.MAX_PLAYERS) {
                         ws.send(JSON.stringify({ type: 'ERROR', payload: { message: 'A sala está cheia.' } }));
                         ws.close(1008, 'Sala cheia');
@@ -232,6 +232,7 @@ export class Game {
                 case 'JOIN_TEAM': this.joinTeam(sendingPlayer, message.payload.team, message.payload.role); break;
                 case 'GIVE_CLUE': this.giveClue(sendingPlayer, message.payload.clue, message.payload.count); break;
                 case 'MAKE_GUESS': this.makeGuess(sendingPlayer, message.payload.word); break;
+                case 'PASS_TURN': this.passTurn(sendingPlayer); break;
                 default: console.log(`[Game] Mensagem de tipo desconhecido recebida: ${message.type}`); break;
             }
         } catch (error) {
@@ -270,6 +271,30 @@ export class Game {
             this.broadcastMessage({ type: 'ERROR', payload: { message: 'São necessários pelo menos 4 jogadores para iniciar.' } });
             return;
         }
+        const assignedPlayers = Array.from(this.players.values()).filter(p => p.team && p.role);
+        const teamA = assignedPlayers.filter(p => p.team === 'A');
+        const teamB = assignedPlayers.filter(p => p.team === 'B');
+        const spymasterA = teamA.some(p => p.role === 'spymaster');
+        const operativeA = teamA.some(p => p.role === 'operative');
+        const spymasterB = teamB.some(p => p.role === 'spymaster');
+        const operativeB = teamB.some(p => p.role === 'operative');
+        if (!spymasterA) {
+            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Azul precisa de um Espião Mestre.' } });
+            return;
+        }
+        if (!operativeA) {
+            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Azul precisa de pelo menos um Agente.' } });
+            return;
+        }
+        if (!spymasterB) {
+            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Vermelho precisa de um Espião Mestre.' } });
+            return;
+        }
+        if (!operativeB) {
+            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Vermelho precisa de pelo menos um Agente.' } });
+            return;
+        }
+
         await updateLobbyStatus(this.lobbyId, 'in_game');
         this.log = ["🚀 Jogo iniciado!"];
         const totalCards = 25;
@@ -306,9 +331,10 @@ export class Game {
     
     private giveClue(player: Player, clue: string, count: number) {
         if (this.gamePhase !== 'giving_clue' || player.role !== 'spymaster' || player.team !== this.currentTurn) return;
+        
         this.turnTimeRemaining = null;
         this.currentClue = { word: clue, count };
-        this.guessesRemaining = count;
+        this.guessesRemaining = count + 1; // REGRA N+1
         this.gamePhase = 'guessing';
         const teamName = player.team === 'A' ? '🔵' : '🔴';
         this.log.push(`${teamName} Dica: "${clue}" (${count})`);
@@ -319,44 +345,57 @@ export class Game {
         if (this.gamePhase !== 'guessing' || player.role !== 'operative' || player.team !== this.currentTurn) return;
         const card = this.board.find(c => c.word === word && !c.revealed);
         if (!card) return;
+
         card.revealed = true;
         this.log.push(`${player.username} chutou: "${word}".`);
+        let shouldEndTurn = false;
+
         switch(card.color) {
             case 'assassin':
                 this.log.push(`💣 Era o Assassino! Fim de jogo.`);
                 this.endGame(this.currentTurn === 'A' ? 'B' : 'A');
-                break;
+                return;
             case 'neutral':
                 this.log.push(`- Neutro. Fim do turno.`);
-                this.endTurn();
+                shouldEndTurn = true;
                 break;
             case 'blue':
                 this.scores.A--;
                 this.log.push(`✅ Correto! Era uma carta Azul.`);
-                if (this.currentTurn === 'A') {
-                    this.guessesRemaining--;
-                    if (this.guessesRemaining <= 0) this.endTurn();
-                } else {
+                if (this.currentTurn !== 'A') {
                     this.log.push(`- Ops! Era do outro time. Fim do turno.`);
-                    this.endTurn();
+                    shouldEndTurn = true;
                 }
                 break;
             case 'red':
                 this.scores.B--;
                 this.log.push(`✅ Correto! Era uma carta Vermelha.`);
-                if (this.currentTurn === 'B') {
-                    this.guessesRemaining--;
-                    if (this.guessesRemaining <= 0) this.endTurn();
-                } else {
+                if (this.currentTurn !== 'B') {
                     this.log.push(`- Ops! Era do outro time. Fim do turno.`);
-                    this.endTurn();
+                    shouldEndTurn = true;
                 }
                 break;
         }
-        if (this.winner) return;
-        if (this.scores.A === 0) this.endGame('A');
-        else if (this.scores.B === 0) this.endGame('B');
-        else this.broadcastState();
+
+        this.guessesRemaining--;
+
+        if (this.scores.A === 0) { this.endGame('A'); return; }
+        if (this.scores.B === 0) { this.endGame('B'); return; }
+
+        if (shouldEndTurn || this.guessesRemaining <= 0) {
+            this.endTurn();
+        } else {
+            this.broadcastState();
+        }
+    }
+    
+    private passTurn(player: Player) {
+        if (this.gamePhase !== 'guessing' || player.role !== 'operative' || player.team !== this.currentTurn) {
+            return;
+        }
+        const teamName = player.team === 'A' ? 'Azul' : 'Vermelho';
+        this.log.push(`🏃 Time ${teamName} passou a vez.`);
+        this.endTurn();
     }
 
     private endTurn() {

@@ -10,6 +10,10 @@ export class GameManager {
         this.games = new Map();
     }
 
+    public getGame(lobbyId: string): Game | undefined {
+        return this.games.get(lobbyId);
+    }
+
     // Quando um jogador se conecta via WebSocket
     public async addPlayer(lobbyId: string, ws: WebSocket) {
         let game = this.games.get(lobbyId);
@@ -87,3 +91,5 @@ export class GameManager {
         }
     }
 }
+
+export const gameManager = new GameManager();
