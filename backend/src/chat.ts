@@ -1,135 +1,136 @@
 // src/chat.ts
 
-import { WebSocket, RawData } from 'ws';
+import { WebSocket } from 'ws';
 
-// Estruturas de dados (iguais às que você já tinha)
-interface User {
-    userId: string;
-    username:string;
-    ws: WebSocket;
-}
-
-interface Message {
+// Define a estrutura de uma mensagem de chat
+interface ChatMessage {
     userId: string;
     username: string;
     text: string;
     timestamp: Date;
 }
 
-// O ChatManager vai encapsular o mapa de lobbies e as funções de broadcast
-class ChatManager {
-    private lobbies = new Map<string, { users: User[]; messages: Message[] }>();
+// Estendemos a interface do WebSocket para armazenar dados do usuário
+interface UserWebSocket extends WebSocket {
+    userId: string;
+    username: string;
+}
 
-    // Adiciona um novo usuário a um lobby de chat
-    public addUser(lobbyId: string, userId: string, username: string, ws: WebSocket) {
-        // Cria o lobby se ele não existir
-        if (!this.lobbies.has(lobbyId)) {
-            this.lobbies.set(lobbyId, { users: [], messages: [] });
-            console.log(`[Chat] Novo lobby de chat criado: ${lobbyId}`);
+class ChatManager {
+    // Usamos um Map para armazenar as salas de chat. A chave é o lobbyId.
+    // O valor é um Set de WebSockets de usuários conectados àquela sala.
+    private rooms: Map<string, Set<UserWebSocket>> = new Map();
+    // Armazena o histórico de mensagens por sala
+    private messageHistory: Map<string, ChatMessage[]> = new Map();
+
+    /**
+     * Lida com uma nova conexão de WebSocket para o chat.
+     */
+    public handleConnection(ws: UserWebSocket, lobbyId: string, userId: string, username: string) {
+        // Atribui os dados do usuário ao objeto WebSocket para fácil acesso
+        ws.userId = userId;
+        ws.username = username;
+
+        // Se a sala não existe, cria uma nova
+        if (!this.rooms.has(lobbyId)) {
+            this.rooms.set(lobbyId, new Set());
+            this.messageHistory.set(lobbyId, []);
+            console.log(`[Chat] Nova sala de chat criada para o lobby: ${lobbyId}`);
         }
 
-        const lobby = this.lobbies.get(lobbyId)!;
-        const user: User = { userId, username, ws };
-        lobby.users.push(user);
-        
-        console.log(`[Chat] Usuário ${username} (${userId}) entrou no chat do lobby ${lobbyId}`);
+        // Adiciona o usuário à sala
+        const room = this.rooms.get(lobbyId)!;
+        room.add(ws);
+        console.log(`[Chat] Usuário ${username} (${userId}) entrou no chat do lobby ${lobbyId}.`);
 
-        // Envia o histórico de mensagens apenas para o usuário que acabou de entrar
+        // Envia o histórico de mensagens para o usuário que acabou de conectar
+        const history = this.messageHistory.get(lobbyId) || [];
         ws.send(JSON.stringify({
             type: 'message_history',
-            messages: lobby.messages
+            messages: history
         }));
 
-        // Notifica os outros usuários que alguém entrou
-        this.broadcast(lobbyId, {
-            type: 'user_joined',
-            userId,
-            username
-        }, ws); // Exclui o próprio usuário da notificação de entrada
-    }
-
-    // Remove um usuário de um lobby
-    public removeUser(lobbyId: string, ws: WebSocket) {
-        const lobby = this.lobbies.get(lobbyId);
-        if (!lobby) return;
-
-        let removedUser: User | undefined;
-        // Filtra o usuário que está se desconectando
-        lobby.users = lobby.users.filter(user => {
-            if (user.ws === ws) {
-                removedUser = user;
-                return false;
-            }
-            return true;
+        // Configura os listeners para esta conexão
+        ws.on('message', (message: string) => {
+            this.handleMessage(lobbyId, ws, message);
         });
 
-        if (removedUser) {
-            console.log(`[Chat] Usuário ${removedUser.username} saiu do chat do lobby ${lobbyId}`);
-            // Notifica os usuários restantes que alguém saiu
-            this.broadcast(lobbyId, {
-                type: 'user_left',
-                userId: removedUser.userId,
-                username: removedUser.username
-            });
-        }
-        
-        // Opcional: Limpar o lobby se ele ficar vazio
-        if (lobby.users.length === 0) {
-            console.log(`[Chat] Lobby de chat ${lobbyId} está vazio. Removendo.`);
-            this.lobbies.delete(lobbyId);
-        }
+        ws.on('close', () => {
+            this.handleDisconnect(lobbyId, ws);
+        });
+
+        ws.on('error', (error) => {
+            console.error(`[Chat] Erro no WebSocket do usuário ${username}:`, error);
+            this.handleDisconnect(lobbyId, ws);
+        });
     }
 
-    // Processa uma nova mensagem recebida
-    public handleMessage(lobbyId: string, ws: WebSocket, data: RawData) {
-        const lobby = this.lobbies.get(lobbyId);
-        const sender = lobby?.users.find(u => u.ws === ws);
-
-        if (!lobby || !sender) return;
-
+    /**
+     * Processa uma nova mensagem recebida de um usuário.
+     */
+    private handleMessage(lobbyId: string, senderWs: UserWebSocket, messageStr: string) {
         try {
-            const messagePayload = JSON.parse(data.toString());
+            const parsedMessage = JSON.parse(messageStr);
             
-            if (messagePayload.type === 'chat_message') {
-                const chatMessage: Message = {
-                    userId: sender.userId,
-                    username: sender.username,
-                    text: messagePayload.text,
+            // Verificamos se é uma mensagem de chat válida
+            if (parsedMessage.type === 'chat_message' && parsedMessage.text) {
+                const newMessage: ChatMessage = {
+                    userId: senderWs.userId,
+                    username: senderWs.username,
+                    text: parsedMessage.text,
                     timestamp: new Date(),
                 };
+                
+                // Adiciona a mensagem ao histórico
+                this.messageHistory.get(lobbyId)?.push(newMessage);
 
-                // Armazena a mensagem no histórico do lobby
-                lobby.messages.push(chatMessage);
-                // Limita o histórico para não crescer indefinidamente
-                if (lobby.messages.length > 100) {
-                    lobby.messages.shift();
-                }
-
-                // Transmite a nova mensagem para todos no lobby
-                this.broadcast(lobbyId, {
+                // Prepara a mensagem para ser enviada aos clientes
+                const broadcastMessage = JSON.stringify({
                     type: 'chat_message',
-                    ...chatMessage,
+                    ...newMessage
                 });
-            }
 
+                // Envia a mensagem para todos na sala
+                this.broadcast(lobbyId, broadcastMessage);
+                console.log(`[Chat] Mensagem de ${senderWs.username} no lobby ${lobbyId}: ${newMessage.text}`);
+            }
         } catch (error) {
-            console.error('[Chat] Erro ao processar mensagem:', error);
+            console.error(`[Chat] Erro ao processar mensagem no lobby ${lobbyId}:`, error);
         }
     }
 
-    // Função de broadcast, pode excluir um ws específico se necessário
-    private broadcast(lobbyId: string, message: any, excludeWs?: WebSocket) {
-        const lobby = this.lobbies.get(lobbyId);
-        if (!lobby) return;
+    /**
+     * Lida com a desconexão de um usuário.
+     */
+    private handleDisconnect(lobbyId: string, ws: UserWebSocket) {
+        const room = this.rooms.get(lobbyId);
+        if (room) {
+            room.delete(ws);
+            console.log(`[Chat] Usuário ${ws.username} (${ws.userId}) saiu do chat do lobby ${lobbyId}.`);
 
-        const messageStr = JSON.stringify(message);
-        lobby.users.forEach(user => {
-            if (user.ws !== excludeWs && user.ws.readyState === WebSocket.OPEN) {
-                user.ws.send(messageStr);
+            // Se a sala ficar vazia, podemos limpá-la para economizar memória
+            if (room.size === 0) {
+                this.rooms.delete(lobbyId);
+                this.messageHistory.delete(lobbyId);
+                console.log(`[Chat] Sala de chat do lobby ${lobbyId} está vazia e foi removida.`);
             }
-        });
+        }
+    }
+
+    /**
+     * Envia uma mensagem para todos os usuários em uma sala específica.
+     */
+    private broadcast(lobbyId: string, message: string) {
+        const room = this.rooms.get(lobbyId);
+        if (room) {
+            room.forEach(client => {
+                if (client.readyState === WebSocket.OPEN) {
+                    client.send(message);
+                }
+            });
+        }
     }
 }
 
-// Crie uma instância singleton do ChatManager para ser usada em todo o app
+// Exporta uma instância única (Singleton) do ChatManager
 export const chatManager = new ChatManager();

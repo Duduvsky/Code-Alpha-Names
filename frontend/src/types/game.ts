@@ -26,6 +26,7 @@ export interface GameState {
     currentClue: { word: string; count: number } | null;
     scores: { A: number; B: number };
     winner: Team | null;
+    creatorId: string;
     // Adicione um log se quiser que o servidor o gerencie
     log: string[]; 
 }

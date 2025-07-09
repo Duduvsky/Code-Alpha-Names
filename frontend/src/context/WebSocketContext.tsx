@@ -2,7 +2,7 @@ import React, { createContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 // Não exporte estes. Eles serão usados apenas internamente e pelo hook.
-interface WebSocketContextType {
+export interface WebSocketContextType {
     ws: WebSocket | null;
     isConnected: boolean;
     sendMessage: (type: string, payload: unknown) => void;

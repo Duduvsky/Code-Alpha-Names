@@ -1,34 +1,36 @@
+// src/App.tsx
+
 import { useState, useEffect } from "react";
 import AuthForm from "./components/Auth/AuthForm";
 import Dashboard from "./components/Dashboard/Dashboard";
 import GameScreen from "./components/Game/GameScreen";
-import { WebSocketProvider } from "./context/WebSocketContext"; // <-- 1. Importe o Provider
+import { WebSocketProvider } from "./context/WebSocketContext";
+
+type Difficulty = "Fácil" | "Normal" | "Difícil" | "HARDCORE";
+
+interface ActiveLobby {
+  id: string;
+  difficulty: Difficulty;
+}
 
 function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentScreen, setCurrentScreen] = useState<"dashboard" | "game">("dashboard");
-  const [selectedLobby, setSelectedLobby] = useState<{id: string, difficulty: "fácil" | "normal" | "difícil" | "HARDCORE"} | null>(null);
-
-  // 2. Crie um estado para a URL do WebSocket
+  const [selectedLobby, setSelectedLobby] = useState<ActiveLobby | null>(null);
   const [gameWsUrl, setGameWsUrl] = useState<string | null>(null);
 
   useEffect(() => {
+    // Função para verificar se o usuário já está autenticado
     const checkAuth = async () => {
-      const API_URL = import.meta.env.VITE_API_URL;
       try {
-        const res = await fetch(`${API_URL}/auth/me`, {
-          credentials: 'include',
-        });
+        const res = await fetch(`/api/auth/me`, { credentials: 'include' });
         if (res.ok) {
           const data = await res.json();
           localStorage.setItem("userId", data.id);
           localStorage.setItem("username", data.username);
           setIsAuthenticated(true);
         } else {
-          // Limpa o local storage se o token/cookie for inválido
-          localStorage.removeItem("userId");
-          localStorage.removeItem("username");
-          setIsAuthenticated(false);
+          handleLogout(false); // Chama o logout sem fazer request de API
         }
       } catch {
         setIsAuthenticated(false);
@@ -36,37 +38,80 @@ function App() {
     };
 
     checkAuth();
-  }, []);
+    
+    // ===================================================================
+    // == 1. RESTAURAR ESTADO AO CARREGAR A PÁGINA
+    // ===================================================================
+    // Esta parte verifica se o usuário estava em um lobby antes de recarregar.
+    const savedLobby = sessionStorage.getItem('activeLobby');
+    if (savedLobby) {
+      try {
+        const lobbyData: ActiveLobby = JSON.parse(savedLobby);
+        // Se encontramos dados salvos, restauramos o estado do jogo.
+        // Chamamos a mesma função de entrar no jogo para manter a lógica centralizada.
+        handleEnterGame(lobbyData.id, lobbyData.difficulty, true);
+      } catch (error) {
+        console.error("Erro ao restaurar lobby salvo:", error);
+        sessionStorage.removeItem('activeLobby'); // Limpa dados inválidos
+      }
+    }
+
+  }, []); // O array vazio [] garante que isso só rode uma vez, quando o App monta.
 
   const handleLogin = () => {
     setIsAuthenticated(true);
   };
 
-  const handleLogout = async () => {
-    // ... seu código de logout ...
+  const handleLogout = async (performApiCall = true) => {
+    if (performApiCall) {
+      try {
+        await fetch(`/api/auth/logout`, { method: 'POST', credentials: 'include' });
+      } catch(error) {
+        console.error("Erro na chamada de logout da API, limpando o estado localmente.", error);
+      }
+    }
+    // Limpeza completa do estado
     localStorage.removeItem("userId");
     localStorage.removeItem("username");
+    sessionStorage.removeItem('activeLobby'); // Limpa o lobby salvo
     setIsAuthenticated(false);
     setCurrentScreen("dashboard");
     setSelectedLobby(null);
-    setGameWsUrl(null); // Garante que a conexão seja fechada no logout
+    setGameWsUrl(null);
   };
 
-  const handleEnterGame = (lobbyId: string, difficulty: "fácil" | "normal" | "difícil" | "HARDCORE") => {
-    setSelectedLobby({id: lobbyId, difficulty});
+  // ===================================================================
+  // == 2. SALVAR ESTADO AO ENTRAR EM UM LOBBY
+  // ===================================================================
+  const handleEnterGame = (lobbyId: string, difficulty: Difficulty, isRestoring = false) => {
+    const lobbyData: ActiveLobby = { id: lobbyId, difficulty };
     
-    // 3. Defina a URL do WebSocket ao entrar no jogo
-    const wsBaseUrl = import.meta.env.VITE_WEBSOCKET_URL || 'ws://localhost:3000';
-    setGameWsUrl(`${wsBaseUrl}/ws/game/${lobbyId}`);
+    // Salva os dados do lobby no sessionStorage para sobreviver ao reload
+    if (!isRestoring) { // Só salva se não estiver restaurando, para evitar redundância
+        sessionStorage.setItem('activeLobby', JSON.stringify(lobbyData));
+    }
     
+    setSelectedLobby(lobbyData);
+    
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const host = window.location.host;
+    const wsUrl = `${protocol}//${host}/ws/game/${lobbyId}`;
+
+    console.log(`[App.tsx] ${isRestoring ? 'Restaurando' : 'Entrando em'} jogo. Conectando WebSocket a: ${wsUrl}`);
+    
+    setGameWsUrl(wsUrl);
     setCurrentScreen("game");
   };
 
+  // ===================================================================
+  // == 3. LIMPAR ESTADO AO SAIR DO LOBBY
+  // ===================================================================
   const handleExitGame = () => {
+    // Limpa o estado salvo para não voltar para o jogo ao recarregar
+    sessionStorage.removeItem('activeLobby');
+    
     setCurrentScreen("dashboard");
     setSelectedLobby(null);
-    
-    // 4. Limpe a URL do WebSocket ao sair do jogo
     setGameWsUrl(null); 
   };
 
@@ -96,7 +141,6 @@ function App() {
   };
 
   return (
-    // 5. Envolva o conteúdo renderizado com o Provider
     <WebSocketProvider url={gameWsUrl}>
       {renderContent()}
     </WebSocketProvider>

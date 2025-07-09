@@ -44,3 +44,11 @@ INSERT INTO game_modes (mode, size, round_duration, black_cards) VALUES
 ('Normal', 5, 180, 1),
 ('Difícil', 5, 60, 4),
 ('HARDCORE', 5, 30, 8);
+
+ALTER TABLE lobbys
+ADD COLUMN password VARCHAR(255) NULL, -- Para salas privadas. NULL se for pública.
+ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'waiting', -- 'waiting', 'in_game', 'finished'
+ADD COLUMN last_activity_at TIMESTAMP WITH TIME ZONE DEFAULT NOW();
+
+-- Opcional, mas recomendado: Adicionar um índice no status para buscas mais rápidas.
+CREATE INDEX idx_lobbys_status ON lobbys(status);

@@ -1,6 +1,7 @@
 // src/GameManager.ts
 import { WebSocket } from 'ws';
 import { Game } from './Game'; // Criaremos este arquivo a seguir
+import { pool } from '../db';
 
 export class GameManager {
     private games: Map<string, Game>; // lobbyId -> Game instance
@@ -10,14 +11,29 @@ export class GameManager {
     }
 
     // Quando um jogador se conecta via WebSocket
-    public addPlayer(lobbyId: string, ws: WebSocket) {
+    public async addPlayer(lobbyId: string, ws: WebSocket) {
         let game = this.games.get(lobbyId);
 
-        // Se o jogo não existe, cria um novo (isso pode ser ligado à sua lógica de lobby)
         if (!game) {
-            console.log(`Criando novo jogo para o lobby ${lobbyId}`);
-            game = new Game(lobbyId);
-            this.games.set(lobbyId, game);
+            try {
+                // Busca o ID do criador do lobby no banco de dados
+                const lobbyRes = await pool.query('SELECT created_by FROM lobbys WHERE code_lobby = $1', [lobbyId]);
+                if (lobbyRes.rows.length === 0) {
+                    console.log(`[GameManager] Tentativa de conexão com lobby inexistente: ${lobbyId}`);
+                    ws.close(1011, 'Lobby não existe.');
+                    return;
+                }
+                const creatorId = lobbyRes.rows[0].created_by;
+
+                console.log(`Criando novo jogo para o lobby ${lobbyId} (Criador: ${creatorId})`);
+                game = new Game(lobbyId, creatorId); // Passa o creatorId para o Game
+                this.games.set(lobbyId, game);
+
+            } catch (error) {
+                console.error(`[GameManager] Erro ao criar jogo para lobby ${lobbyId}:`, error);
+                ws.close(1011, 'Erro interno ao iniciar jogo.');
+                return;
+            }
         }
 
         game.addPlayer(ws);

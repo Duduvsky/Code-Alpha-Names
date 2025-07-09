@@ -6,7 +6,7 @@ import dotenv from 'dotenv';
 import http from 'http';
 import { WebSocketServer, WebSocket } from 'ws'; // Importando WebSocket também para tipagem
 import cors from 'cors';
-import { URL } from 'url'; // Importando o construtor de URL
+import { URL } from 'url';
 
 // Importe suas rotas e os gerenciadores de WebSocket
 import authRoutes from './routes/auth.routes';
@@ -19,8 +19,23 @@ dotenv.config();
 const app = express();
 
 // Configuração CORS
+const allowedOrigins = [
+  'http://localhost',
+  'http://localhost:80',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://equipe01.alphaedtech.org.br'
+];
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization']
@@ -33,11 +48,11 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // Rotas REST
-app.use('/api/auth', authRoutes);
-app.use('/api/lobbys', lobbyRoutes);
+app.use('/auth', authRoutes);
+app.use('/lobbys', lobbyRoutes);
 
 // Health Check
-app.get('/api/health', (req, res) => {
+app.get('/health', (req, res) => {
   res.status(200).json({ status: 'healthy', timestamp: new Date() });
 });
 
@@ -50,11 +65,27 @@ const server = http.createServer(app);
 
 const wss = new WebSocketServer({ server });
 const gameManager = new GameManager();
-// O chatManager já é um singleton importado, não precisa ser instanciado aqui.
+// O chatManager já é um singleton importado.
 
-wss.on('connection', (ws: WebSocket, req) => {
-  // Usar o objeto URL para parsear o request de forma segura
-  // O segundo argumento é uma base para resolver URLs relativas, essencial para o parser funcionar
+// --- LÓGICA DE HEARTBEAT (PING/PONG) PARA MANTER CONEXÕES VIVAS ---
+// Estendemos a interface WebSocket para adicionar a flag 'isAlive'
+interface AliveWebSocket extends WebSocket {
+  isAlive: boolean;
+}
+
+// Função que será chamada quando um 'pong' for recebido, marcando a conexão como viva.
+function heartbeat(this: WebSocket) {
+  (this as AliveWebSocket).isAlive = true;
+}
+
+wss.on('connection', async (ws: AliveWebSocket, req) => {
+  // Configuração inicial do Heartbeat para esta nova conexão
+  ws.isAlive = true;
+  // O navegador responde automaticamente aos 'pings' do servidor com 'pongs'.
+  // Aqui, apenas dizemos o que fazer quando um 'pong' chega: chamar a função heartbeat.
+  ws.on('pong', heartbeat);
+
+  // Lógica de roteamento da conexão
   const url = new URL(req.url!, `http://${req.headers.host}`);
   const pathname = url.pathname;
 
@@ -64,7 +95,7 @@ wss.on('connection', (ws: WebSocket, req) => {
   if (pathname.startsWith('/ws/game/')) {
     // --- LÓGICA PARA O JOGO ---
     const pathParts = pathname.split('/');
-    const lobbyId = pathParts[3]; // /ws/game/LOBBY_ID
+    const lobbyId = pathParts[3];
 
     if (!lobbyId) {
       console.log('[Game] Conexão de jogo sem lobbyId. Fechando.');
@@ -73,7 +104,16 @@ wss.on('connection', (ws: WebSocket, req) => {
     }
 
     console.log(`[Game] Conexão roteada para o Jogo no lobby: ${lobbyId}`);
-    gameManager.addPlayer(lobbyId, ws);
+    
+    try {
+      await gameManager.addPlayer(lobbyId, ws);
+    } catch (error: any) {
+      console.error(`[Game] Falha ao adicionar jogador no GameManager: ${error.message}`);
+      if (ws.readyState === WebSocket.OPEN) {
+          ws.close(1011, 'Falha ao inicializar o jogo.');
+      }
+      return;
+    }
 
     ws.on('message', (message) => {
       gameManager.handleMessage(lobbyId, ws, message.toString());
@@ -94,33 +134,19 @@ wss.on('connection', (ws: WebSocket, req) => {
     const pathParts = pathname.split('/');
     const lobbyId = pathParts[3];
     const userId = url.searchParams.get('userId');
-    const usernameParam = url.searchParams.get('username');
+    const username = url.searchParams.get('username');
 
-    if (!lobbyId || !userId || !usernameParam) {
-      console.log('[Chat] Conexão de chat com parâmetros faltando. Fechando.');
-      ws.close(1008, 'Parâmetros lobbyId, userId e username são obrigatórios.');
-      return;
+    if (!lobbyId || !userId || !username) {
+        console.log('[Chat] Conexão de chat com parâmetros faltando. Fechando.');
+        ws.close(1008, 'Parâmetros (lobbyId, userId, username) são necessários.');
+        return;
     }
-
-    // Decodifica o username que veio da URL
-    const username = decodeURIComponent(usernameParam);
-    console.log(`[Chat] Conexão roteada para o Chat no lobby: ${lobbyId} por ${username}`);
-
-    // Delega o gerenciamento para o ChatManager
-    chatManager.addUser(lobbyId, userId, username, ws);
-
-    ws.on('message', (message) => {
-      chatManager.handleMessage(lobbyId, ws, message);
-    });
-
-    ws.on('close', () => {
-      chatManager.removeUser(lobbyId, ws);
-    });
-
-    ws.on('error', (error) => {
-      console.error(`[Chat] Erro no WebSocket (Lobby ${lobbyId}):`, error);
-      chatManager.removeUser(lobbyId, ws);
-    });
+    
+    console.log(`[Chat] Conexão roteada para o Chat no lobby: ${lobbyId}`);
+    
+    // Passa a conexão para o chatManager cuidar de tudo (adicionar a sala, listeners, etc.)
+    // O cast `as any` é usado pois adicionamos propriedades customizadas no objeto `ws` dentro do chatManager
+    chatManager.handleConnection(ws as any, lobbyId, userId, username);
 
   } else {
     // Se a URL não corresponder a nenhum serviço conhecido, feche a conexão.
@@ -128,6 +154,32 @@ wss.on('connection', (ws: WebSocket, req) => {
     ws.close(1008, 'Endpoint WebSocket inválido.');
   }
 });
+
+// --- VERIFICADOR DE HEARTBEAT GLOBAL ---
+// A cada 30 segundos, verificamos todas as conexões para remover as que estão "mortas".
+const interval = setInterval(() => {
+  wss.clients.forEach((wsClient) => {
+    const ws = wsClient as AliveWebSocket;
+
+    // Se a flag `isAlive` for falsa, a conexão não respondeu ao último ping.
+    // Consideramos a conexão "morta" e a encerramos.
+    if (ws.isAlive === false) {
+      console.log('[Heartbeat] Conexão inativa detectada. Encerrando.');
+      return ws.terminate(); // terminate() fecha a conexão imediatamente, sem cerimônia.
+    }
+
+    // Se a conexão estava viva, nós a marcamos como "possivelmente morta" para o próximo ciclo
+    // e enviamos um 'ping'. Se ela responder com um 'pong', a flag voltará a ser 'true'.
+    ws.isAlive = false;
+    ws.ping();
+  });
+}, 30000); // 30 segundos é um intervalo seguro e comum.
+
+// Limpa o intervalo de verificação quando o servidor é fechado.
+wss.on('close', () => {
+  clearInterval(interval);
+});
+
 
 // ===================================================================
 // ==            FIM DA LÓGICA DE WEBSOCKET CENTRALIZADA            ==

@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    container_name: codenames_postgres
+    environment:
+      POSTGRES_DB: codenamesdb
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin123
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./backend/docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - codenames_net
+
+  backend:
+    build: ./backend
+    container_name: backend
+    depends_on:
+      - db
+    environment:
+      DB_USER: admin
+      DB_PASSWORD: admin123
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_DATABASE: codenamesdb
+    expose:
+      - 3000
+    networks:
+      - codenames_net
+
+  frontend:
+    build: ./frontend
+    container_name: frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+    networks:
+      - codenames_net
+
+networks:
+  codenames_net:
