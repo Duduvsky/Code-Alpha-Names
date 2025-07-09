@@ -6,12 +6,12 @@ import { pool } from '../db';
 
 // Tipos
 type PlayerRole = 'spymaster' | 'operative';
-type Team = 'A' | 'B'; // 'A' será mapeado para 'blue', 'B' para 'red'
+type Team = 'A' | 'B';
 type GamePhase = 'waiting' | 'giving_clue' | 'guessing' | 'ended';
 
 interface Player {
     id: string;
-    ws: WebSocket;
+    ws: WebSocket | null; 
     username: string;
     team?: Team;
     role?: PlayerRole;
@@ -28,25 +28,26 @@ interface WsMessage {
     payload: any;
 }
 
-// ===================================================================
-// FUNÇÃO PARA SALVAR HISTÓRICO - (Fornecida por você e integrada)
-// ===================================================================
+interface GameSettings {
+    roundDuration: number;
+    blackCards: number;
+}
+
+
 async function saveMatchHistory(
     lobbyIdDb: number,
-    winningTeam: Team, // 'A' ou 'B'
+    winningTeam: Team,
     players: Player[]
 ) {
     const client = await pool.connect();
     try {
         await client.query('BEGIN');
 
-        // 1. Atualiza o lobby principal para 'finished' e marca a data de conclusão
         await client.query(
             "UPDATE lobbys SET status = 'finished', finished_at = NOW(), last_activity_at = NOW() WHERE id = $1",
             [lobbyIdDb]
         );
 
-        // 2. Insere o registro de cada jogador na tabela 'users_lobbys'
         const playerInsertQuery = `
             INSERT INTO users_lobbys (id_lobby, id_user, team, role, winner)
             VALUES ($1, $2, $3, $4, $5)
@@ -54,18 +55,12 @@ async function saveMatchHistory(
 
         for (const player of players) {
             if (player.team && player.role) {
-                // Mapeamento de times do jogo ('A'/'B') para o DB ('blue'/'red')
                 const teamNameInDb = player.team === 'A' ? 'blue' : 'red';
                 const winningTeamInDb = winningTeam === 'A' ? 'blue' : 'red';
-                
                 const didPlayerWin = teamNameInDb === winningTeamInDb;
 
                 await client.query(playerInsertQuery, [
-                    lobbyIdDb,
-                    Number(player.id),
-                    teamNameInDb,
-                    player.role,
-                    didPlayerWin, // O resultado booleano (true/false)
+                    lobbyIdDb, Number(player.id), teamNameInDb, player.role, didPlayerWin,
                 ]);
             }
         }
@@ -80,7 +75,6 @@ async function saveMatchHistory(
     }
 }
 
-// Função auxiliar para atualizar status (usada em outros pontos, como desconexão do criador)
 async function updateLobbyStatus(lobbyCode: string, status: 'waiting' | 'in_game' | 'finished'): Promise<void> {
     try {
         let query = '';
@@ -101,7 +95,7 @@ export class Game {
     private lobbyId: string;
     private creatorId: number;
     private readonly MAX_PLAYERS = 16;
-    private players: Map<WebSocket, Player>;
+    private players: Map<string, Player>; 
     private board: Card[] = [];
     private currentTurn: Team = 'A';
     private gamePhase: GamePhase = 'waiting';
@@ -112,20 +106,23 @@ export class Game {
     private log: string[] = ["Aguardando jogadores..."];
     private creatorDisconnectTimeout: NodeJS.Timeout | null = null;
     private lobbyIdDb: number | null = null;
+    private settings: GameSettings;
+    private turnTimer: NodeJS.Timeout | null = null;
+    private turnTimeRemaining: number | null = null;
 
-    constructor(lobbyId: string, creatorId: number) {
+    constructor(lobbyId: string, creatorId: number, settings: GameSettings) {
         this.lobbyId = lobbyId;
         this.creatorId = creatorId;
+        this.settings = settings;
         this.players = new Map();
         this.fetchLobbyDbId(); 
     }
 
-     private async fetchLobbyDbId() {
+    private async fetchLobbyDbId() {
         try {
             const result = await pool.query('SELECT id FROM lobbys WHERE code_lobby = $1', [this.lobbyId]);
             if (result.rows.length > 0) {
                 this.lobbyIdDb = result.rows[0].id;
-                console.log(`[Game] ID do DB (${this.lobbyIdDb}) encontrado para o lobby ${this.lobbyId}`);
             } else {
                 console.error(`[Game] Não foi possível encontrar o ID do DB para o lobby ${this.lobbyId}`);
             }
@@ -139,45 +136,31 @@ export class Game {
     }
 
     removePlayer(ws: WebSocket) {
-        const player = this.players.get(ws);
-        if (player) {
-            this.players.delete(ws);
-            this.log.push(`🚪 ${player.username} saiu da sala.`);
-            console.log(`[Game] Jogador ${player.username} desconectado do lobby ${this.lobbyId}`);
-
+        let disconnectedPlayerId: string | null = null;
+        for (const [playerId, player] of this.players.entries()) {
+            if (player.ws === ws) {
+                disconnectedPlayerId = playerId;
+                break;
+            }
+        }
+        if (disconnectedPlayerId) {
+            const player = this.players.get(disconnectedPlayerId)!;
+            player.ws = null;
+            this.log.push(`🔌 ${player.username} desconectou-se.`);
+            console.log(`[Game] Jogador ${player.username} desconectado. Seu lugar está guardado.`);
             if (Number(player.id) === this.creatorId) {
                 this.log.push(`🚨 O criador da sala desconectou! A sala será fechada em 30 segundos se ele não retornar.`);
-                
-                this.broadcastMessage({
-                    type: 'CREATOR_DISCONNECTED_WARNING',
-                    payload: { message: 'O criador desconectou! A sala será fechada em 30s se ele não retornar.' }
-                });
-
-                this.broadcastState();
-
-                console.log(`[Game] Criador (${this.creatorId}) desconectou. Iniciando contagem de 30s para fechar o lobby ${this.lobbyId}.`);
-                
+                this.broadcastMessage({ type: 'CREATOR_DISCONNECTED_WARNING', payload: { message: 'O criador desconectou! A sala será fechada em 30s se ele não retornar.' } });
+                this.clearTurnTimer();
                 this.creatorDisconnectTimeout = setTimeout(() => {
-                    console.log(`[Game] Janela de tolerância para o criador do lobby ${this.lobbyId} expirou. Fechando a sala.`);
                     this.log.push(`🚨 O criador não retornou a tempo. O jogo foi encerrado.`);
-                    
-                    this.broadcastMessage({
-                        type: 'LOBBY_CLOSED',
-                        payload: { reason: 'O criador da sala saiu e não retornou.' }
-                    });
-
-                    this.players.forEach((p, clientWs) => {
-                        clientWs.close(1000, 'O criador encerrou a sala.');
-                    });
-
+                    this.broadcastMessage({ type: 'LOBBY_CLOSED', payload: { reason: 'O criador da sala saiu e não retornou.' } });
+                    this.players.forEach(p => p.ws?.close(1000, 'O criador encerrou a sala.'));
                     this.players.clear();
-                    // Atualiza o status do lobby para 'finished' no DB
                     updateLobbyStatus(this.lobbyId, 'finished');
                 }, 30000);
-
-            } else {
-                this.broadcastState();
             }
+            this.broadcastState();
         }
     }
 
@@ -191,102 +174,125 @@ export class Game {
             
             if (message.type === 'JOIN_GAME') {
                 const { userId, username } = message.payload;
-                
-                if (Number(userId) === this.creatorId && this.creatorDisconnectTimeout) {
-                    console.log(`[Game] Criador (${this.creatorId}) reconectou-se a tempo! Cancelando fechamento do lobby ${this.lobbyId}.`);
-                    clearTimeout(this.creatorDisconnectTimeout);
-                    this.creatorDisconnectTimeout = null;
-                    this.log.push(`✅ O criador da sala retornou!`);
+                const existingPlayer = this.players.get(userId);
 
-                    this.broadcastMessage({
-                        type: 'CREATOR_RECONNECTED',
-                        payload: { message: 'O criador da sala retornou! O jogo continua.' }
-                    });
-                }
-
-                let existingPlayer: Player | undefined;
-                let oldWs: WebSocket | undefined;
-                for (const [clientWs, player] of this.players.entries()) {
-                    if (player.id === userId) {
-                        existingPlayer = player;
-                        oldWs = clientWs;
-                        break;
-                    }
-                }
-
-                if (existingPlayer && oldWs) {
-                    console.log(`[Game] Jogador ${username} (${userId}) está se reconectando ao lobby ${this.lobbyId}.`);
-                    this.players.delete(oldWs);
+                if (existingPlayer) {
+                    console.log(`[Game] Jogador ${username} (${userId}) está se reconectando.`);
                     existingPlayer.ws = ws;
-                    this.players.set(ws, existingPlayer);
-                    this.log.push(`🔌 ${username} reconectou-se à sala.`);
+                    this.log.push(`✅ ${username} reconectou-se à sala.`);
+                    if (Number(userId) === this.creatorId && this.creatorDisconnectTimeout) {
+                        clearTimeout(this.creatorDisconnectTimeout);
+                        this.creatorDisconnectTimeout = null;
+                        this.log.push(`👑 O criador da sala retornou!`);
+                        if(this.gamePhase !== 'waiting' && this.gamePhase !== 'ended') {
+                            this.startTurnTimer();
+                        }
+                        this.broadcastMessage({ type: 'CREATOR_RECONNECTED', payload: { message: 'O criador da sala retornou! O jogo continua.' } });
+                    }
                 } else {
+                    // ===================================================================
+                    // LÓGICA AJUSTADA PARA NOVOS JOGADORES
+                    // ===================================================================
+                    if (this.gamePhase !== 'waiting') {
+                        console.log(`[Game] Bloqueando novo jogador (${username}) de entrar em jogo em andamento.`);
+                        ws.send(JSON.stringify({ type: 'ERROR', payload: { message: 'Este jogo já começou. Você não pode entrar.' } }));
+                        ws.close(1008, 'Game already in progress');
+                        return;
+                    }
+
                     if (this.players.size >= this.MAX_PLAYERS) {
                         ws.send(JSON.stringify({ type: 'ERROR', payload: { message: 'A sala está cheia.' } }));
                         ws.close(1008, 'Sala cheia');
                         return;
                     }
-                    const newPlayer: Player = { id: userId, username: username, ws: ws };
-                    this.players.set(ws, newPlayer);
+                    const newPlayer: Player = { id: userId, username, ws, team: undefined, role: undefined };
+                    this.players.set(userId, newPlayer);
                     this.log.push(`👋 ${newPlayer.username} entrou na sala!`);
-                    console.log(`[Game] Jogador ${newPlayer.username} (${newPlayer.id}) entrou no lobby ${this.lobbyId}.`);
                 }
                 
                 this.broadcastState();
                 return;
             }
 
-            const player = this.players.get(ws);
-            if (!player) {
+            let sendingPlayer: Player | null = null;
+            for(const player of this.players.values()){
+                if(player.ws === ws){
+                    sendingPlayer = player;
+                    break;
+                }
+            }
+            
+            if (!sendingPlayer) {
                 ws.close(1008, "Ação inválida antes de entrar no jogo.");
                 return;
             }
 
             switch (message.type) {
-                case 'START_GAME':
-                    this.startGame();
-                    break;
-                case 'JOIN_TEAM':
-                    this.joinTeam(player, message.payload.team, message.payload.role);
-                    break;
-                case 'GIVE_CLUE':
-                    this.giveClue(player, message.payload.clue, message.payload.count);
-                    break;
-                case 'MAKE_GUESS':
-                    this.makeGuess(player, message.payload.word);
-                    break;
-                default:
-                    console.log(`[Game] Mensagem de tipo desconhecido recebida: ${message.type}`);
-                    break;
+                case 'START_GAME': this.startGame(); break;
+                case 'JOIN_TEAM': this.joinTeam(sendingPlayer, message.payload.team, message.payload.role); break;
+                case 'GIVE_CLUE': this.giveClue(sendingPlayer, message.payload.clue, message.payload.count); break;
+                case 'MAKE_GUESS': this.makeGuess(sendingPlayer, message.payload.word); break;
+                default: console.log(`[Game] Mensagem de tipo desconhecido recebida: ${message.type}`); break;
             }
         } catch (error) {
             console.error('[Game] Erro ao processar mensagem WebSocket:', error);
         }
     }
     
+    private clearTurnTimer() {
+        if (this.turnTimer) {
+            clearInterval(this.turnTimer);
+            this.turnTimer = null;
+        }
+    }
+
+    private startTurnTimer() {
+        this.clearTurnTimer();
+        if (this.settings.roundDuration <= 0) {
+            this.turnTimeRemaining = null;
+            return;
+        }
+        this.turnTimeRemaining = this.turnTimeRemaining || this.settings.roundDuration;
+        this.broadcastState();
+        this.turnTimer = setInterval(() => {
+            if (this.turnTimeRemaining !== null && this.turnTimeRemaining > 0) {
+                this.turnTimeRemaining--;
+                this.broadcastState();
+            } else {
+                this.log.push(`⌛ O tempo acabou! Turno encerrado.`);
+                this.endTurn();
+            }
+        }, 1000);
+    }
+
     private async startGame() {
         if (this.gamePhase !== 'waiting' || this.players.size < 4) {
             this.broadcastMessage({ type: 'ERROR', payload: { message: 'São necessários pelo menos 4 jogadores para iniciar.' } });
             return;
         }
-
         await updateLobbyStatus(this.lobbyId, 'in_game');
         this.log = ["🚀 Jogo iniciado!"];
         const totalCards = 25;
         const words = this.shuffleArray(palavrasData.palavras).slice(0, totalCards);
-        const colors = this.shuffleArray([
-            ...Array(9).fill('blue'),
-            ...Array(8).fill('red'),
-            ...Array(7).fill('neutral'),
-            ...Array(1).fill('assassin'),
-        ]);
-        this.board = words.map((word, i) => ({ word, color: colors[i], revealed: false }));
-        this.scores = { A: 9, B: 8 };
+        const numBlackCards = this.settings.blackCards;
+        const numBlueCards = 9;
+        const numRedCards = 8;
+        const numNeutralCards = totalCards - numBlueCards - numRedCards - numBlackCards;
+        if (numNeutralCards < 0) {
+            console.error(`[Game] Configuração de cartas inválida. Fallback para modo Normal.`);
+            const fallbackColors = this.shuffleArray([...Array(9).fill('blue'),...Array(8).fill('red'),...Array(7).fill('neutral'),...Array(1).fill('assassin')]);
+            this.board = words.map((word, i) => ({ word, color: fallbackColors[i], revealed: false }));
+            this.scores = { A: 9, B: 8 };
+        } else {
+             const colors = this.shuffleArray([...Array(numBlueCards).fill('blue'),...Array(numRedCards).fill('red'),...Array(numNeutralCards).fill('neutral'),...Array(numBlackCards).fill('assassin')]);
+            this.board = words.map((word, i) => ({ word, color: colors[i], revealed: false }));
+            this.scores = { A: numBlueCards, B: numRedCards };
+        }
         this.currentTurn = 'A';
         this.gamePhase = 'giving_clue';
         this.log.push(`🔵 Time Azul começa. Aguardando dica do espião.`);
-        console.log(`Jogo ${this.lobbyId} iniciado!`);
-        this.broadcastState();
+        console.log(`[Game] Jogo ${this.lobbyId} iniciado com ${numBlackCards} carta(s) de assassino!`);
+        this.startTurnTimer();
     }
 
     private joinTeam(player: Player, team: Team, role: PlayerRole) {
@@ -300,22 +306,21 @@ export class Game {
     
     private giveClue(player: Player, clue: string, count: number) {
         if (this.gamePhase !== 'giving_clue' || player.role !== 'spymaster' || player.team !== this.currentTurn) return;
+        this.turnTimeRemaining = null;
         this.currentClue = { word: clue, count };
         this.guessesRemaining = count;
         this.gamePhase = 'guessing';
         const teamName = player.team === 'A' ? '🔵' : '🔴';
         this.log.push(`${teamName} Dica: "${clue}" (${count})`);
-        this.broadcastState();
+        this.startTurnTimer();
     }
 
     private makeGuess(player: Player, word: string) {
         if (this.gamePhase !== 'guessing' || player.role !== 'operative' || player.team !== this.currentTurn) return;
         const card = this.board.find(c => c.word === word && !c.revealed);
         if (!card) return;
-
         card.revealed = true;
         this.log.push(`${player.username} chutou: "${word}".`);
-
         switch(card.color) {
             case 'assassin':
                 this.log.push(`💣 Era o Assassino! Fim de jogo.`);
@@ -348,7 +353,6 @@ export class Game {
                 }
                 break;
         }
-        
         if (this.winner) return;
         if (this.scores.A === 0) this.endGame('A');
         else if (this.scores.B === 0) this.endGame('B');
@@ -356,40 +360,31 @@ export class Game {
     }
 
     private endTurn() {
+        this.turnTimeRemaining = null;
         this.currentTurn = this.currentTurn === 'A' ? 'B' : 'A';
         this.gamePhase = 'giving_clue';
         this.currentClue = null;
         this.guessesRemaining = 0;
         const teamName = this.currentTurn === 'A' ? 'Azul' : 'Vermelho';
         this.log.push(`Turno passou para o Time ${teamName}.`);
-        this.broadcastState();
+        this.startTurnTimer();
     }
     
-    // ===================================================================
-    // MÉTODO `endGame` AJUSTADO
-    // ===================================================================
     private async endGame(winner: Team) {
-        if (this.winner) return; // Evita que o jogo termine duas vezes
-
+        if (this.winner) return;
+        this.clearTurnTimer();
         this.winner = winner;
         this.gamePhase = 'ended';
         this.board.forEach(c => c.revealed = true);
         const teamName = winner === 'A' ? "Azul" : "Vermelho";
         this.log.push(`🏆 O Time ${teamName} venceu!`);
-
-        // A chamada a `updateLobbyStatus` foi removida daqui,
-        // pois a função `saveMatchHistory` já cuida disso.
-
         if (this.lobbyIdDb) {
             const playersArray = Array.from(this.players.values());
             await saveMatchHistory(this.lobbyIdDb, winner, playersArray);
         } else {
             console.error(`[Game] Não foi possível salvar o histórico. ID do lobby no DB não foi encontrado para o código ${this.lobbyId}.`);
-            // Como fallback, podemos tentar atualizar o status pelo código do lobby
             await updateLobbyStatus(this.lobbyId, 'finished');
         }
-
-        // Envia o estado final para todos os jogadores
         this.broadcastState();
     }
 
@@ -400,23 +395,20 @@ export class Game {
     }
     
     private sendStateToPlayer(player: Player) {
-        if (player.ws.readyState !== WebSocket.OPEN) {
+        if (!player.ws || player.ws.readyState !== WebSocket.OPEN) {
             return;
         }
-
         const playersList = Array.from(this.players.values()).map(p => ({
             id: p.id,
             username: p.username,
             team: p.team,
             role: p.role,
         }));
-
         const boardForPlayer = this.board.map(card => ({
             word: card.word,
             revealed: card.revealed,
             color: (this.gamePhase === 'ended' || player.role === 'spymaster' || card.revealed) ? card.color : 'hidden',
         }));
-
         const stateForPlayer = {
             lobbyId: this.lobbyId,
             players: playersList,
@@ -429,13 +421,12 @@ export class Game {
             winner: this.winner,
             log: this.log,
             creatorId: String(this.creatorId),
+            turnTimeRemaining: this.turnTimeRemaining,
         };
-
         const message: WsMessage = {
             type: 'GAME_STATE_UPDATE',
             payload: stateForPlayer
         };
-
         player.ws.send(JSON.stringify(message));
     }
     
@@ -450,9 +441,9 @@ export class Game {
 
     private broadcastMessage(message: WsMessage) {
         const messageStr = JSON.stringify(message);
-        this.players.forEach((player, ws) => {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.send(messageStr);
+        this.players.forEach((player) => {
+            if (player.ws && player.ws.readyState === WebSocket.OPEN) {
+                player.ws.send(messageStr);
             }
         });
     }

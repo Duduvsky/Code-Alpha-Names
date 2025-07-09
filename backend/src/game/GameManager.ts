@@ -1,6 +1,6 @@
 // src/GameManager.ts
 import { WebSocket } from 'ws';
-import { Game } from './Game'; // Criaremos este arquivo a seguir
+import { Game } from './Game'; 
 import { pool } from '../db';
 
 export class GameManager {
@@ -16,17 +16,44 @@ export class GameManager {
 
         if (!game) {
             try {
-                // Busca o ID do criador do lobby no banco de dados
-                const lobbyRes = await pool.query('SELECT created_by FROM lobbys WHERE code_lobby = $1', [lobbyId]);
+                // ===================================================================
+                // 1. QUERY MODIFICADA PARA BUSCAR AS REGRAS DO JOGO
+                // ===================================================================
+                const lobbyQuery = `
+                    SELECT 
+                        l.created_by,
+                        gm.round_duration,
+                        gm.black_cards
+                    FROM lobbys l
+                    JOIN game_modes gm ON l.game_mode_id = gm.id
+                    WHERE l.code_lobby = $1
+                `;
+                const lobbyRes = await pool.query(lobbyQuery, [lobbyId]);
+
                 if (lobbyRes.rows.length === 0) {
                     console.log(`[GameManager] Tentativa de conexão com lobby inexistente: ${lobbyId}`);
                     ws.close(1011, 'Lobby não existe.');
                     return;
                 }
-                const creatorId = lobbyRes.rows[0].created_by;
 
-                console.log(`Criando novo jogo para o lobby ${lobbyId} (Criador: ${creatorId})`);
-                game = new Game(lobbyId, creatorId); // Passa o creatorId para o Game
+                const dbData = lobbyRes.rows[0];
+                const creatorId = dbData.created_by;
+
+                // ===================================================================
+                // 2. CRIAÇÃO DO OBJETO DE CONFIGURAÇÕES
+                // ===================================================================
+                const settings = {
+                    roundDuration: dbData.round_duration,
+                    blackCards: dbData.black_cards,
+                };
+
+                console.log(`[GameManager] Criando novo jogo para o lobby ${lobbyId} (Criador: ${creatorId})`);
+                console.log(`[GameManager] Configurações do modo:`, settings);
+
+                // ===================================================================
+                // 3. PASSANDO AS CONFIGURAÇÕES PARA O CONSTRUTOR DO JOGO
+                // ===================================================================
+                game = new Game(lobbyId, creatorId, settings);
                 this.games.set(lobbyId, game);
 
             } catch (error) {
@@ -54,7 +81,7 @@ export class GameManager {
             game.removePlayer(ws);
             // Opcional: se o jogo ficar vazio, removê-lo
             if (game.isEmpty()) {
-                console.log(`Removendo jogo vazio do lobby ${lobbyId}`);
+                console.log(`[GameManager] Removendo jogo vazio do lobby ${lobbyId}`);
                 this.games.delete(lobbyId);
             }
         }

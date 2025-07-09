@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import Chat from "../Chat/Chat";
-// Lembre-se de adicionar `creatorId: string;` à sua interface GameState no seu arquivo de tipos (ex: src/types/game.ts)
 import type { GameState, Team, PlayerRole } from "../../types/game";
 import { useWebSocket } from '../../hooks/useWebSocket';
+import { ClockIcon } from '@heroicons/react/24/outline'; // Importando o ícone
 
 import timeA from '../../../public/Codenames BlueTeam - Spyfamily 1.png'
 import timeB from '../../../public/Codenames AnyBond RedTeam - SpyFamily 1.png'
@@ -17,6 +17,13 @@ interface GameScreenProps {
   username: string;
 }
 
+const formatTime = (seconds: number | null): string => {
+  if (seconds === null || seconds < 0) return "00:00";
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+};
+
 const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [clueWord, setClueWord] = useState("");
@@ -26,6 +33,10 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
 
   const { ws, isConnected, sendMessage } = useWebSocket();
   const joinedWsRef = useRef<WebSocket | null>(null);
+
+  const [displayTime, setDisplayTime] = useState<number | null>(null);
+  // Corrigindo a tipagem do Ref para funcionar em ambos ambientes (Node/Browser)
+  const localTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     if (!isConnected || !ws) {
@@ -53,18 +64,29 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
                     onExit();
                 }, 3000);
                 break;
-            case 'ERROR':
-                notify(`Erro: ${message.payload.message}`, "error");
-                break;
             
-            // MUDANÇA 1: Adicionar listeners para as novas notificações do criador
+            // ===================================================================
+            // LÓGICA DE ERRO AJUSTADA
+            // ===================================================================
+            case 'ERROR': { // Adicionado chaves para criar um novo escopo
+                const errorMessage = message.payload.message;
+                notify(`Erro: ${errorMessage}`, "error");
+
+                // Se o erro for sobre o jogo já ter começado, manda o usuário de volta
+                if (errorMessage.includes("jogo já começou")) {
+                    setTimeout(() => {
+                        onExit();
+                    }, 3000); // Dá 3 segundos para ler a notificação
+                }
+                break;
+            }
+
             case 'CREATOR_DISCONNECTED_WARNING':
-                notify(message.payload.message, "info"); // Notificação de aviso
+                notify(message.payload.message, "info");
                 break;
             case 'CREATOR_RECONNECTED':
-                notify(message.payload.message, "success"); // Notificação de sucesso
+                notify(message.payload.message, "success");
                 break;
-
             default:
                 break;
         }
@@ -80,6 +102,26 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
       joinedWsRef.current = null;
     };
   }, [isConnected, ws, userId, username, sendMessage, onExit, notify]);
+  
+  useEffect(() => {
+    if (localTimerRef.current) {
+      clearInterval(localTimerRef.current);
+    }
+
+    setDisplayTime(gameState?.turnTimeRemaining ?? null);
+
+    if (gameState?.turnTimeRemaining && gameState.turnTimeRemaining > 0) {
+      localTimerRef.current = setInterval(() => {
+        setDisplayTime(prevTime => (prevTime && prevTime > 0 ? prevTime - 1 : 0));
+      }, 1000);
+    }
+    
+    return () => {
+      if (localTimerRef.current) {
+        clearInterval(localTimerRef.current);
+      }
+    };
+  }, [gameState?.turnTimeRemaining]);
 
   const handleStartGame = () => sendMessage('START_GAME', {});
   const handleJoinTeam = (team: Team, role: PlayerRole) => sendMessage('JOIN_TEAM', { team, role });
@@ -126,11 +168,10 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
       </div>
       
       <div className="flex justify-between items-center pb-2 md:pb-4">
-        <div className="text-lg font-bold">Jogadores: {gameState.players.length} / 16</div>
+        <div className="text-lg font-bold">Jogadores: {gameState.players.length}</div>
         <div className="flex items-center gap-2">
           <span className="px-3 py-1 bg-gray-700 rounded font-semibold">{username}</span>
           
-          {/* MUDANÇA 2: A lógica do botão "Iniciar" agora compara com o `creatorId` do estado do jogo */}
           {gameState.gamePhase === 'waiting' && userId === gameState.creatorId && (
             <button 
               onClick={handleStartGame} 
@@ -182,9 +223,18 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
         </div>
 
         <div className="flex-1 min-h-0 flex flex-col items-center">
-            <div className="text-center font-bold mb-2 text-lg">
-                {gameState.gamePhase === 'ended' ? `FIM DE JOGO! Time ${gameState.winner === 'A' ? 'Azul' : 'Vermelho'} venceu!` : `Turno: Time ${gameState.currentTurn === 'A' ? 'Azul' : 'Vermelho'}`}
+            <div className="flex justify-center items-center gap-4 font-bold mb-2 text-lg">
+                <span>
+                    {gameState.gamePhase === 'ended' ? `FIM DE JOGO! Time ${gameState.winner === 'A' ? 'Azul' : 'Vermelho'} venceu!` : `Turno: Time ${gameState.currentTurn === 'A' ? 'Azul' : 'Vermelho'}`}
+                </span>
+                {displayTime !== null && gameState.gamePhase !== 'ended' && gameState.gamePhase !== 'waiting' && (
+                    <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-base transition-colors duration-300 ${displayTime <= 10 ? 'text-red-300 bg-red-900 bg-opacity-50 animate-pulse' : 'text-gray-300 bg-gray-700'}`}>
+                        <ClockIcon className="h-5 w-5" />
+                        <span>{formatTime(displayTime)}</span>
+                    </div>
+                )}
             </div>
+            
             <div className="grid grid-cols-5 gap-2 md:gap-3 mx-auto">
               {gameState.board.map((card) => {
                   const isRevealed = card.revealed;

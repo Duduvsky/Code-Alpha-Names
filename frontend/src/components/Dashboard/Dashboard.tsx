@@ -23,27 +23,21 @@ interface Lobby {
   is_private: boolean;
 }
 
-// ===================================================================
-// 1. NOVA INTERFACE PARA O HISTÓRICO DE PARTIDAS
-// ===================================================================
 interface MatchHistoryItem {
   lobbyId: number;
   lobbyName: string;
   difficulty: string;
   userWon: boolean;
-  finishedAt: string; // A data virá como string no formato ISO
+  finishedAt: string;
 }
 
 const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
   const [searchCode, setSearchCode] = useState("");
   const username = localStorage.getItem("username") || "Usuário";
-  const userId = localStorage.getItem("userId"); // Necessário para a API de histórico
+  const userId = localStorage.getItem("userId");
   const { notify } = useNotification();
 
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
-  // ===================================================================
-  // 2. ESTADO DO HISTÓRICO AGORA É DINÂMICO E TIPADO
-  // ===================================================================
   const [matchHistory, setMatchHistory] = useState<MatchHistoryItem[]>([]);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -70,12 +64,8 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
     }
   }, [searchCode]);
 
-  // ===================================================================
-  // 3. NOVA FUNÇÃO PARA BUSCAR O HISTÓRICO DA API
-  // ===================================================================
   const fetchMatchHistory = useCallback(async () => {
-    if (!userId) return; // Não faz a busca se não houver um usuário logado
-
+    if (!userId) return;
     try {
       const response = await fetch(`${API_URL}/history?userId=${userId}`, {
         credentials: 'include',
@@ -88,18 +78,12 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
       }
     } catch (err) {
       console.error("Erro ao buscar histórico:", err);
-      // Opcional: notificar o usuário, mas pode ser irritante em recargas
-      // notify("Não foi possível carregar seu histórico de partidas.", "error");
     }
   }, [userId]);
 
-  // ===================================================================
-  // 4. CHAMADA DA NOVA FUNÇÃO NO useEffect
-  // ===================================================================
   useEffect(() => {
     fetchLobbys();
-    fetchMatchHistory(); // Busca o histórico ao carregar o dashboard
-
+    fetchMatchHistory();
     const interval = setInterval(() => {
       if (!searchCode) {
         fetchLobbys();
@@ -108,14 +92,13 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
     return () => clearInterval(interval);
   }, [searchCode, fetchLobbys, fetchMatchHistory]);
 
-
   const handleCreateLobby = async () => {
     if (!lobbyName.trim()) {
       notify("Por favor, dê um nome ao seu lobby.", "info");
       return;
     }
     try {
-      if (!userId) { // Re-check do userId aqui
+      if (!userId) {
         notify("Erro: Usuário não logado. Por favor, faça login novamente.", "error");
         return;
       }
@@ -138,21 +121,22 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
         throw new Error(data.message || "Erro ao criar lobby");
       }
       setIsCreateModalOpen(false);
+      setLobbyName("");
+      setLobbyPassword("");
       notify("Lobby criado com sucesso!", "success");
       onEnterLobby(data.code_lobby, data.difficulty_name);
     } catch (err: unknown) {
-      console.error("Erro ao criar lobby:", err);
       const message = err instanceof Error ? err.message : String(err);
       notify(message, "error");
     }
   };
 
-  // ... (O resto das suas funções: attemptToEnterLobby, handleEnterPrivateLobby, handleLogout, handleDeleteLobby permanecem iguais)
   const attemptToEnterLobby = (lobby: Lobby) => {
     if (lobby.is_private) {
       setSelectedLobby(lobby);
       setIsPasswordModalOpen(true);
     } else {
+      // Para salas públicas, entra diretamente. O backend vai validar se pode entrar.
       onEnterLobby(lobby.code_lobby, lobby.difficulty_name);
     }
   };
@@ -160,14 +144,20 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
   const handleEnterPrivateLobby = async () => {
     if (!selectedLobby) return;
     try {
-      const response = await fetch(`${API_URL}/lobbys/${selectedLobby.code_lobby}?password=${enteredPassword}`);
-      const data = await response.json();
+      // Simula uma tentativa de entrada que o backend validará, mesmo com senha.
+      // A senha aqui é mais uma "chave" para a tentativa.
+      // A lógica real de "pode entrar?" é gerenciada no backend (Game.ts)
+      const response = await fetch(`${API_URL}/lobbys/${selectedLobby.code_lobby}/verify?password=${enteredPassword}`);
+
       if (!response.ok) {
-        throw new Error(data.message || "Erro ao entrar no lobby");
+        const data = await response.json();
+        throw new Error(data.message || "Senha incorreta ou erro ao verificar lobby.");
       }
+
       setIsPasswordModalOpen(false);
       setEnteredPassword("");
-      onEnterLobby(data.code_lobby, data.difficulty_name);
+      onEnterLobby(selectedLobby.code_lobby, selectedLobby.difficulty_name);
+
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       notify(message, "error");
@@ -217,7 +207,6 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white p-6 rounded-lg shadow">
-          {/* SEÇÃO DE LOBBYS (sem alteração) */}
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold">Lobbys</h2>
             <button
@@ -258,13 +247,18 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
                   </div>
                 </div>
                 <div className="flex gap-2">
+                  {/* =================================================================== */}
+                  {/* LÓGICA DO BOTÃO AJUSTADA */}
+                  {/* O botão "Entrar" agora está sempre habilitado. A lógica de permissão
+                      é 100% gerenciada pelo backend, permitindo a reconexão. */}
+                  {/* =================================================================== */}
                   <button
                     onClick={() => attemptToEnterLobby(lobby)}
-                    disabled={lobby.status === 'in_game'}
-                    className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                    className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
                   >
                     Entrar
                   </button>
+
                   {lobby.creator_name === localStorage.getItem("username") && (
                     <button
                       onClick={() => handleDeleteLobby(lobby.id)}
@@ -279,9 +273,6 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
           </ul>
         </div>
         
-        {/* =================================================================== */}
-        {/* 5. RENDERIZAÇÃO DO HISTÓRICO TOTALMENTE ATUALIZADA */}
-        {/* =================================================================== */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-2xl font-bold mb-4">Histórico de Partidas</h2>
           <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
