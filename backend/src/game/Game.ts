@@ -4,9 +4,9 @@ import { WebSocket } from 'ws';
 import palavrasData from './palavras_jogo.json';
 import { pool } from '../db';
 
-// Tipos (sem alterações)
+// Tipos
 type PlayerRole = 'spymaster' | 'operative';
-type Team = 'A' | 'B';
+type Team = 'A' | 'B'; // 'A' será mapeado para 'blue', 'B' para 'red'
 type GamePhase = 'waiting' | 'giving_clue' | 'guessing' | 'ended';
 
 interface Player {
@@ -28,7 +28,59 @@ interface WsMessage {
     payload: any;
 }
 
-// Função auxiliar (sem alterações)
+// ===================================================================
+// FUNÇÃO PARA SALVAR HISTÓRICO - (Fornecida por você e integrada)
+// ===================================================================
+async function saveMatchHistory(
+    lobbyIdDb: number,
+    winningTeam: Team, // 'A' ou 'B'
+    players: Player[]
+) {
+    const client = await pool.connect();
+    try {
+        await client.query('BEGIN');
+
+        // 1. Atualiza o lobby principal para 'finished' e marca a data de conclusão
+        await client.query(
+            "UPDATE lobbys SET status = 'finished', finished_at = NOW(), last_activity_at = NOW() WHERE id = $1",
+            [lobbyIdDb]
+        );
+
+        // 2. Insere o registro de cada jogador na tabela 'users_lobbys'
+        const playerInsertQuery = `
+            INSERT INTO users_lobbys (id_lobby, id_user, team, role, winner)
+            VALUES ($1, $2, $3, $4, $5)
+        `;
+
+        for (const player of players) {
+            if (player.team && player.role) {
+                // Mapeamento de times do jogo ('A'/'B') para o DB ('blue'/'red')
+                const teamNameInDb = player.team === 'A' ? 'blue' : 'red';
+                const winningTeamInDb = winningTeam === 'A' ? 'blue' : 'red';
+                
+                const didPlayerWin = teamNameInDb === winningTeamInDb;
+
+                await client.query(playerInsertQuery, [
+                    lobbyIdDb,
+                    Number(player.id),
+                    teamNameInDb,
+                    player.role,
+                    didPlayerWin, // O resultado booleano (true/false)
+                ]);
+            }
+        }
+
+        await client.query('COMMIT');
+        console.log(`[DB] Histórico da partida para o lobby ID ${lobbyIdDb} salvo com sucesso.`);
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('[DB] Erro ao salvar histórico da partida:', error);
+    } finally {
+        client.release();
+    }
+}
+
+// Função auxiliar para atualizar status (usada em outros pontos, como desconexão do criador)
 async function updateLobbyStatus(lobbyCode: string, status: 'waiting' | 'in_game' | 'finished'): Promise<void> {
     try {
         let query = '';
@@ -59,11 +111,27 @@ export class Game {
     private winner: Team | null = null;
     private log: string[] = ["Aguardando jogadores..."];
     private creatorDisconnectTimeout: NodeJS.Timeout | null = null;
+    private lobbyIdDb: number | null = null;
 
     constructor(lobbyId: string, creatorId: number) {
         this.lobbyId = lobbyId;
         this.creatorId = creatorId;
         this.players = new Map();
+        this.fetchLobbyDbId(); 
+    }
+
+     private async fetchLobbyDbId() {
+        try {
+            const result = await pool.query('SELECT id FROM lobbys WHERE code_lobby = $1', [this.lobbyId]);
+            if (result.rows.length > 0) {
+                this.lobbyIdDb = result.rows[0].id;
+                console.log(`[Game] ID do DB (${this.lobbyIdDb}) encontrado para o lobby ${this.lobbyId}`);
+            } else {
+                console.error(`[Game] Não foi possível encontrar o ID do DB para o lobby ${this.lobbyId}`);
+            }
+        } catch (error) {
+            console.error(`[Game] Erro ao buscar ID do DB para o lobby ${this.lobbyId}:`, error);
+        }
     }
 
     addPlayer(ws: WebSocket) {
@@ -80,13 +148,12 @@ export class Game {
             if (Number(player.id) === this.creatorId) {
                 this.log.push(`🚨 O criador da sala desconectou! A sala será fechada em 30 segundos se ele não retornar.`);
                 
-                // MUDANÇA 1: Enviar uma mensagem de aviso específica para o frontend
                 this.broadcastMessage({
                     type: 'CREATOR_DISCONNECTED_WARNING',
                     payload: { message: 'O criador desconectou! A sala será fechada em 30s se ele não retornar.' }
                 });
 
-                this.broadcastState(); // Atualiza o log para quem está com a tela aberta
+                this.broadcastState();
 
                 console.log(`[Game] Criador (${this.creatorId}) desconectou. Iniciando contagem de 30s para fechar o lobby ${this.lobbyId}.`);
                 
@@ -104,6 +171,7 @@ export class Game {
                     });
 
                     this.players.clear();
+                    // Atualiza o status do lobby para 'finished' no DB
                     updateLobbyStatus(this.lobbyId, 'finished');
                 }, 30000);
 
@@ -130,14 +198,12 @@ export class Game {
                     this.creatorDisconnectTimeout = null;
                     this.log.push(`✅ O criador da sala retornou!`);
 
-                    // MUDANÇA 2: Enviar uma mensagem de sucesso quando o criador se reconecta
                     this.broadcastMessage({
                         type: 'CREATOR_RECONNECTED',
                         payload: { message: 'O criador da sala retornou! O jogo continua.' }
                     });
                 }
 
-                // Lógica de reconexão continua a mesma
                 let existingPlayer: Player | undefined;
                 let oldWs: WebSocket | undefined;
                 for (const [clientWs, player] of this.players.entries()) {
@@ -298,15 +364,32 @@ export class Game {
         this.log.push(`Turno passou para o Time ${teamName}.`);
         this.broadcastState();
     }
-
+    
+    // ===================================================================
+    // MÉTODO `endGame` AJUSTADO
+    // ===================================================================
     private async endGame(winner: Team) {
-        if (this.winner) return;
-        await updateLobbyStatus(this.lobbyId, 'waiting');
+        if (this.winner) return; // Evita que o jogo termine duas vezes
+
         this.winner = winner;
         this.gamePhase = 'ended';
         this.board.forEach(c => c.revealed = true);
         const teamName = winner === 'A' ? "Azul" : "Vermelho";
         this.log.push(`🏆 O Time ${teamName} venceu!`);
+
+        // A chamada a `updateLobbyStatus` foi removida daqui,
+        // pois a função `saveMatchHistory` já cuida disso.
+
+        if (this.lobbyIdDb) {
+            const playersArray = Array.from(this.players.values());
+            await saveMatchHistory(this.lobbyIdDb, winner, playersArray);
+        } else {
+            console.error(`[Game] Não foi possível salvar o histórico. ID do lobby no DB não foi encontrado para o código ${this.lobbyId}.`);
+            // Como fallback, podemos tentar atualizar o status pelo código do lobby
+            await updateLobbyStatus(this.lobbyId, 'finished');
+        }
+
+        // Envia o estado final para todos os jogadores
         this.broadcastState();
     }
 
@@ -345,7 +428,6 @@ export class Game {
             scores: this.scores,
             winner: this.winner,
             log: this.log,
-            // MUDANÇA 3: Adicionar o ID do criador ao estado do jogo
             creatorId: String(this.creatorId),
         };
 

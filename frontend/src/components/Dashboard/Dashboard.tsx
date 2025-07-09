@@ -1,13 +1,8 @@
-import { useState, useEffect, useCallback } from "react"; // Adicionado useCallback
+import { useState, useEffect, useCallback } from "react";
 import CreateLobbyModal from "./CreateLobbyModal";
-// O caminho da sua importação. Se o arquivo estiver em src/components/Modal/useNotification.ts, está correto.
 import { useNotification } from "../Modal/useNotification"; 
-
 import { LockClosedIcon } from '@heroicons/react/24/solid';
 
-// ===================================================================
-// CORREÇÃO 1: Tipos alinhados com o Banco de Dados
-// ===================================================================
 type Difficulty = "Fácil" | "Normal" | "Difícil" | "HARDCORE";
 
 interface DashboardProps {
@@ -20,7 +15,7 @@ const API_URL = import.meta.env.VITE_API_URL;
 interface Lobby {
   id: number;
   name: string;
-  difficulty_name: Difficulty; // Usando o tipo corrigido
+  difficulty_name: Difficulty;
   code_lobby: string;
   creator_name: string;
   created_by: number;
@@ -28,20 +23,31 @@ interface Lobby {
   is_private: boolean;
 }
 
+// ===================================================================
+// 1. NOVA INTERFACE PARA O HISTÓRICO DE PARTIDAS
+// ===================================================================
+interface MatchHistoryItem {
+  lobbyId: number;
+  lobbyName: string;
+  difficulty: string;
+  userWon: boolean;
+  finishedAt: string; // A data virá como string no formato ISO
+}
+
 const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
   const [searchCode, setSearchCode] = useState("");
   const username = localStorage.getItem("username") || "Usuário";
+  const userId = localStorage.getItem("userId"); // Necessário para a API de histórico
   const { notify } = useNotification();
 
   const [lobbies, setLobbies] = useState<Lobby[]>([]);
-  const [matchHistory] = useState([
-    { id: 1, result: "Vitória", date: "25/06/2025" },
-    { id: 2, result: "Derrota", date: "24/06/2025" },
-  ]);
+  // ===================================================================
+  // 2. ESTADO DO HISTÓRICO AGORA É DINÂMICO E TIPADO
+  // ===================================================================
+  const [matchHistory, setMatchHistory] = useState<MatchHistoryItem[]>([]);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [lobbyName, setLobbyName] = useState("");
-  // Estado inicial alinhado com o tipo corrigido
   const [lobbyDifficulty, setLobbyDifficulty] = useState<Difficulty>("Normal"); 
   const [lobbyPassword, setLobbyPassword] = useState("");
 
@@ -49,7 +55,6 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
   const [selectedLobby, setSelectedLobby] = useState<Lobby | null>(null);
   const [enteredPassword, setEnteredPassword] = useState("");
 
-  // Usando useCallback para a função ser estável e poder ser usada no useEffect
   const fetchLobbys = useCallback(async () => {
     try {
       const url = searchCode ? `${API_URL}/lobbys?search=${searchCode}` : `${API_URL}/lobbys`;
@@ -63,17 +68,45 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
     } catch (err) {
       console.error("Erro ao buscar salas:", err);
     }
-  }, [searchCode]); // A função agora só é recriada se searchCode mudar
+  }, [searchCode]);
 
+  // ===================================================================
+  // 3. NOVA FUNÇÃO PARA BUSCAR O HISTÓRICO DA API
+  // ===================================================================
+  const fetchMatchHistory = useCallback(async () => {
+    if (!userId) return; // Não faz a busca se não houver um usuário logado
+
+    try {
+      const response = await fetch(`${API_URL}/history?userId=${userId}`, {
+        credentials: 'include',
+      });
+      const data = await response.json();
+      if (response.ok) {
+        setMatchHistory(data);
+      } else {
+        throw new Error(data.message || "Erro ao buscar histórico");
+      }
+    } catch (err) {
+      console.error("Erro ao buscar histórico:", err);
+      // Opcional: notificar o usuário, mas pode ser irritante em recargas
+      // notify("Não foi possível carregar seu histórico de partidas.", "error");
+    }
+  }, [userId]);
+
+  // ===================================================================
+  // 4. CHAMADA DA NOVA FUNÇÃO NO useEffect
+  // ===================================================================
   useEffect(() => {
     fetchLobbys();
+    fetchMatchHistory(); // Busca o histórico ao carregar o dashboard
+
     const interval = setInterval(() => {
       if (!searchCode) {
         fetchLobbys();
       }
     }, 5000);
     return () => clearInterval(interval);
-  }, [searchCode, fetchLobbys]); // Adicionando fetchLobbys à dependência
+  }, [searchCode, fetchLobbys, fetchMatchHistory]);
 
 
   const handleCreateLobby = async () => {
@@ -81,45 +114,32 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
       notify("Por favor, dê um nome ao seu lobby.", "info");
       return;
     }
-
     try {
-      const userId = localStorage.getItem("userId");
-      if (!userId) {
+      if (!userId) { // Re-check do userId aqui
         notify("Erro: Usuário não logado. Por favor, faça login novamente.", "error");
         return;
       }
-
-      // ===================================================================
-      // CORREÇÃO 2: Mapeamento alinhado com o Banco de Dados
-      // ===================================================================
       const payload = {
         name: lobbyName,
-        // As chaves do objeto AGORA correspondem exatamente às strings no estado/tipo
         game_mode_id: { "Fácil": 1, "Normal": 2, "Difícil": 3, "HARDCORE": 4 }[lobbyDifficulty],
         created_by: Number(userId),
         password: lobbyPassword || null,
       };
-
-      // Garantir que o game_mode_id foi encontrado
       if (!payload.game_mode_id) {
           throw new Error(`Dificuldade inválida selecionada: ${lobbyDifficulty}`);
       }
-
       const response = await fetch(`${API_URL}/lobbys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
-
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data.message || "Erro ao criar lobby");
       }
-
       setIsCreateModalOpen(false);
       notify("Lobby criado com sucesso!", "success");
       onEnterLobby(data.code_lobby, data.difficulty_name);
-
     } catch (err: unknown) {
       console.error("Erro ao criar lobby:", err);
       const message = err instanceof Error ? err.message : String(err);
@@ -127,6 +147,7 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
     }
   };
 
+  // ... (O resto das suas funções: attemptToEnterLobby, handleEnterPrivateLobby, handleLogout, handleDeleteLobby permanecem iguais)
   const attemptToEnterLobby = (lobby: Lobby) => {
     if (lobby.is_private) {
       setSelectedLobby(lobby);
@@ -141,21 +162,17 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
     try {
       const response = await fetch(`${API_URL}/lobbys/${selectedLobby.code_lobby}?password=${enteredPassword}`);
       const data = await response.json();
-
       if (!response.ok) {
         throw new Error(data.message || "Erro ao entrar no lobby");
       }
-
       setIsPasswordModalOpen(false);
       setEnteredPassword("");
       onEnterLobby(data.code_lobby, data.difficulty_name);
-
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       notify(message, "error");
     }
   };
-
 
   const handleLogout = async () => {
     try {
@@ -176,7 +193,6 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message);
-
       notify("Lobby deletado com sucesso.", "success");
       fetchLobbys();
     } catch (err: unknown) {
@@ -185,9 +201,6 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
     }
   };
 
-  // ===================================================================
-  // CORREÇÃO 3: Passando as opções corretas para o Modal
-  // ===================================================================
   const difficultyOptions: Difficulty[] = ["Fácil", "Normal", "Difícil", "HARDCORE"];
 
   return (
@@ -204,6 +217,7 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white p-6 rounded-lg shadow">
+          {/* SEÇÃO DE LOBBYS (sem alteração) */}
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold">Lobbys</h2>
             <button
@@ -213,7 +227,6 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
               Criar Lobby
             </button>
           </div>
-
           <div className="mb-6 flex flex-wrap gap-2">
             <input
               type="text"
@@ -229,7 +242,6 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
               Limpar
             </button>
           </div>
-
           <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
             {lobbies.length > 0 ? lobbies.map((lobby) => (
               <li key={lobby.id} className="flex justify-between items-center bg-gray-50 shadow p-3 rounded-lg">
@@ -245,7 +257,6 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
                     </p>
                   </div>
                 </div>
-
                 <div className="flex gap-2">
                   <button
                     onClick={() => attemptToEnterLobby(lobby)}
@@ -254,8 +265,7 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
                   >
                     Entrar
                   </button>
-
-                  {lobby.created_by === Number(localStorage.getItem("userId")) && (
+                  {lobby.creator_name === localStorage.getItem("username") && (
                     <button
                       onClick={() => handleDeleteLobby(lobby.id)}
                       className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
@@ -268,16 +278,42 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
             )) : <p className="text-center text-gray-500">Nenhum lobby encontrado.</p>}
           </ul>
         </div>
-
+        
+        {/* =================================================================== */}
+        {/* 5. RENDERIZAÇÃO DO HISTÓRICO TOTALMENTE ATUALIZADA */}
+        {/* =================================================================== */}
         <div className="bg-white p-6 rounded-lg shadow">
           <h2 className="text-2xl font-bold mb-4">Histórico de Partidas</h2>
-          <ul className="space-y-2">
-            {matchHistory.length > 0 ? matchHistory.map((match) => (
-              <li key={match.id} className="p-4 bg-gray-50 border rounded-lg flex justify-between">
-                <span>Partida {match.id} - {match.result}</span>
-                <span className="text-gray-500">{match.date}</span>
-              </li>
-            )) : <p className="text-gray-500">Nenhuma partida registrada ainda.</p>}
+          <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
+            {matchHistory.length > 0 ? (
+              matchHistory.map((match) => (
+                <li
+                  key={match.lobbyId}
+                  className={`p-3 border-l-4 rounded-lg flex justify-between items-center transition-colors ${
+                    match.userWon
+                      ? 'bg-green-50 border-green-500 hover:bg-green-100'
+                      : 'bg-red-50 border-red-500 hover:bg-red-100'
+                  }`}
+                >
+                  <div>
+                    <p className="font-bold text-base">{match.lobbyName}</p>
+                    <p className="text-sm">
+                      <span className={`font-semibold ${match.userWon ? 'text-green-700' : 'text-red-700'}`}>
+                        {match.userWon ? 'Vitória' : 'Derrota'}
+                      </span>
+                      <span className="text-gray-500"> • Modo: {match.difficulty}</span>
+                    </p>
+                  </div>
+                  <span className="text-sm text-gray-600 font-medium">
+                    {new Date(match.finishedAt).toLocaleDateString('pt-BR', {
+                      day: '2-digit', month: '2-digit', year: 'numeric'
+                    })}
+                  </span>
+                </li>
+              ))
+            ) : (
+              <p className="text-gray-500 text-center py-4">Nenhuma partida registrada ainda.</p>
+            )}
           </ul>
         </div>
       </div>

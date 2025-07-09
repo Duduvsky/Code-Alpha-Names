@@ -11,6 +11,7 @@ import { URL } from 'url';
 // Importe suas rotas e os gerenciadores de WebSocket
 import authRoutes from './routes/auth.routes';
 import lobbyRoutes from './routes/lobby.routes';
+import historyRoutes from './routes/history.routes';
 import { GameManager } from './game/GameManager';
 import { chatManager } from './chat';
 
@@ -50,6 +51,7 @@ app.use(cookieParser());
 // Rotas REST
 app.use('/auth', authRoutes);
 app.use('/lobbys', lobbyRoutes);
+app.use('/history', historyRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {
