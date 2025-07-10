@@ -162,7 +162,7 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
                 { team: 'B', name: 'Vermelho', color: 'red', score: gameState.scores.B, spymaster: spymasterB, agents: teamB.filter(p=>p.role==='operative'), image: timeB }
             ].map(t => (
                 <div key={t.team} className="flex flex-col bg-gray-800 bg-opacity-70 rounded shadow p-2 space-y-2 border border-gray-700">
-                    <div className="flex h-[100px] justify-center overflow-hidden rounded"><img src={t.image} alt={`Time ${t.name}`} className="w-full h-full object-cover"/></div>
+                    <div className="flex h-[200px] justify-center overflow-hidden rounded"><img src={t.image} alt={`Time ${t.name}`} className="w-full h-full object-cover object-top"/></div>
                     <div className={`flex justify-between items-center font-bold text-${t.color}-400`}><span>Time {t.name} (Faltam: {t.score})</span></div>
                     <div className="text-xs">Espião: {t.spymaster?.username || 'Vago'}</div>
                     <div className="flex items-center gap-1 text-xs">
@@ -186,16 +186,59 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
                     </div>
                 )}
             </div>
-            <div className="grid grid-cols-5 gap-2 md:gap-3 mx-auto">
+            {/* <div className="grid grid-cols-5 gap-2 md:gap-3 mx-auto">
               {gameState.board.map((card) => {
                   const isRevealed = card.revealed;
                   const canSeeColor = isSpymaster || isRevealed;
                   const getBaseBg = () => { if (canSeeColor) { if (card.color === 'blue') return 'bg-blue-500'; if (card.color === 'red') return 'bg-red-500'; if (card.color === 'neutral') return 'bg-yellow-200'; if (card.color === 'assassin') return 'bg-black'; } return 'bg-white'; };
                   const getTextColor = () => { if (canSeeColor && ['blue', 'red', 'assassin'].includes(card.color)) return 'text-white'; return 'text-black'; };
                   const cardClasses = `w-full aspect-video rounded-md flex items-center justify-center p-1 transition-all duration-300 ${getBaseBg()} ${getTextColor()} ${isRevealed ? 'opacity-50 brightness-75' : 'hover:scale-105'} ${!isMyTurnToGuess || isRevealed ? 'cursor-not-allowed' : 'cursor-pointer'} ${isSpymaster && !isRevealed ? 'border-2 border-dashed border-gray-400' : 'border border-gray-300'}`;
-                  return ( <button key={card.word} disabled={!isMyTurnToGuess || isRevealed} onClick={() => handleMakeGuess(card.word)} className={cardClasses}><span className="text-xs md:text-base font-bold text-center break-words">{card.word}</span></button> );
+                  return ( <button key={card.word} disabled={!isMyTurnToGuess || isRevealed} onClick={() => handleMakeGuess(card.word)} className={cardClasses}><span className="text-xs p-2 md:text-base font-bold text-center break-words">{card.word}</span></button> );
               })}
-            </div>
+            </div> */}
+            <div className="grid grid-cols-5 gap-2 md:gap-3 mx-auto">
+  {gameState.board.map((card) => {
+    const isRevealed = card.revealed;
+    const canSeeColor = isSpymaster || isRevealed;
+
+    const getBaseBg = () => {
+      if (canSeeColor) {
+        if (card.color === 'blue') return 'bg-blue-500';
+        if (card.color === 'red') return 'bg-red-500';
+        if (card.color === 'neutral') return 'bg-yellow-200';
+        if (card.color === 'assassin') return 'bg-black';
+      }
+      return 'bg-white';
+    };
+
+    const getTextColor = () => {
+      if (canSeeColor && ['blue', 'red', 'assassin'].includes(card.color)) return 'text-white';
+      return 'text-black';
+    };
+
+    const outerClasses = `w-full aspect-video rounded-md p-1 transition-all duration-300 
+      ${getBaseBg()} ${getTextColor()} 
+      ${isRevealed ? 'opacity-50 brightness-75' : 'hover:scale-105'} 
+      ${!isMyTurnToGuess || isRevealed ? 'cursor-not-allowed' : 'cursor-pointer'} 
+      ${isSpymaster && !isRevealed ? 'border-2 border-dashed border-gray-400' : 'border border-gray-300'}`;
+
+    return (
+      <button
+        key={card.word}
+        disabled={!isMyTurnToGuess || isRevealed}
+        onClick={() => handleMakeGuess(card.word)}
+        className={outerClasses}
+      >
+        <div className="w-full h-full flex items-center justify-center rounded-sm border border-gray-500 border-dashed px-2 py-1">
+          <span className="text-xs md:text-base font-bold text-center break-words leading-tight">
+            {card.word}
+          </span>
+        </div>
+      </button>
+    );
+  })}
+</div>
+
             <div className="mt-4 w-full max-w-lg">
               {isMyTurnToGiveClue ? (
                   <div className="flex justify-center gap-2 flex-wrap items-center bg-gray-800 p-3 rounded-lg shadow-md">
@@ -242,7 +285,7 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
                 <div className="font-bold mb-2">Log do Jogo</div>
                 <div className="flex-1 bg-gray-900 rounded p-2 overflow-y-auto text-sm space-y-1">{[...(gameState.log || [])].reverse().map((entry, i) => <div key={i}>{entry}</div>)}</div>
             </div>
-            <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded shadow p-2 flex flex-col min-h-0 h-[250px]">
+            <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded shadow p-2 flex flex-col min-h-0 h-[450px]">
               <div className="font-bold mb-2">Chat</div>
               <div className="flex-1 overflow-hidden"><Chat lobbyId={lobbyId} userId={userId} username={username} /></div>
             </div>

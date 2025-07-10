@@ -121,7 +121,7 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
                         value={newMessage}
                         onChange={(e) => setNewMessage(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                        className="flex-1 p-2 border border-gray-600 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
+                        className="flex-1 w-full p-2 border border-gray-600 bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                         placeholder="Digite uma mensagem..."
                     />
                     <button

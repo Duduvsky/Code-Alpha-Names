@@ -3,6 +3,7 @@ import AuthForm from "./components/Auth/AuthForm";
 import Dashboard from "./components/Dashboard/Dashboard";
 import GameScreen from "./components/Game/GameScreen";
 import { WebSocketProvider } from "./context/WebSocketContext";
+import LandingPage from "./components/LadingPage/LandingPage";
 
 // Importando os componentes para a prevenção de múltiplas abas
 import { useMultiTabPrevention } from "./hooks/useMultiTabPrevention";
@@ -21,7 +22,8 @@ function App() {
   const sessionState = useMultiTabPrevention();
 
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [currentScreen, setCurrentScreen] = useState<"dashboard" | "game">("dashboard");
+  // const [currentScreen, setCurrentScreen] = useState<"dashboard" | "game">("dashboard");
+  const [currentScreen, setCurrentScreen] = useState<"landing" | "login" | "dashboard" | "game">("landing");
   const [selectedLobby, setSelectedLobby] = useState<ActiveLobby | null>(null);
   const [gameWsUrl, setGameWsUrl] = useState<string | null>(null);
 
@@ -34,8 +36,10 @@ function App() {
           localStorage.setItem("userId", data.id);
           localStorage.setItem("username", data.username);
           setIsAuthenticated(true);
+          setCurrentScreen("dashboard"); // <- já define a tela correta
         } else {
           handleLogout(false);
+          setCurrentScreen("landing"); // <- fallback se não estiver autenticado
         }
       } catch {
         setIsAuthenticated(false);
@@ -58,6 +62,7 @@ function App() {
 
   const handleLogin = () => {
     setIsAuthenticated(true);
+    setCurrentScreen("dashboard");
   };
 
   const handleLogout = async (performApiCall = true) => {
@@ -118,8 +123,12 @@ function App() {
 
   // 3. Se a aba for ativa, renderiza o conteúdo principal
   const renderContent = () => {
+    if (currentScreen === "landing") {
+      return <LandingPage onStart={() => setCurrentScreen("login")} />;
+    }
+
     if (!isAuthenticated) {
-      return <AuthForm onLogin={handleLogin} />;
+      return <AuthForm onLogin={handleLogin} goBack={() => setCurrentScreen("landing")} />;
     }
 
     if (currentScreen === "game" && selectedLobby) {
@@ -137,10 +146,12 @@ function App() {
     return (
       <Dashboard 
         onLogout={handleLogout} 
-        onEnterLobby={handleEnterGame} 
+        onEnterLobby={handleEnterGame}
+        onBackToLanding={() => setCurrentScreen("landing")}  
       />
     );
   };
+
 
   return (
     <WebSocketProvider url={gameWsUrl}>

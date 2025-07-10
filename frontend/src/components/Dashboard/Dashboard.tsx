@@ -8,6 +8,7 @@ type Difficulty = "Fácil" | "Normal" | "Difícil" | "HARDCORE";
 interface DashboardProps {
   onLogout: () => void;
   onEnterLobby: (lobbyId: string, difficulty: Difficulty) => void;
+  onBackToLanding: () => void;
 }
 
 const API_URL = import.meta.env.VITE_API_URL;
@@ -32,7 +33,7 @@ interface MatchHistoryItem {
   finishedAt: string;
 }
 
-const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
+const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) => {
   const [searchCode, setSearchCode] = useState("");
   const username = localStorage.getItem("username") || "Usuário";
   const userId = localStorage.getItem("userId");
@@ -204,9 +205,20 @@ const Dashboard = ({ onLogout, onEnterLobby }: DashboardProps) => {
     <div className="min-h-screen p-4 md:p-8 bg-gray-100 flex flex-col gap-8">
       <div className="flex justify-between items-center">
         <h1 className="text-xl sm:text-3xl font-bold">Bem-vindo, {username}!</h1>
-        <button onClick={handleLogout} className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
-          Sair
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={onBackToLanding}
+            className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition"
+          >
+            Voltar ao Início
+          </button>
+          <button
+            onClick={handleLogout}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+          >
+            Sair
+          </button>
+        </div>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="bg-white p-6 rounded-lg shadow">
