@@ -11,8 +11,6 @@ interface DashboardProps {
   onBackToLanding: () => void;
 }
 
-// const API_URL = import.meta.env.VITE_API_URL;
-
 interface Lobby {
   id: number;
   name: string;
@@ -230,10 +228,11 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
           <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
             {lobbies.length > 0 ? lobbies.map((lobby) => {
               // ==========================================================
-              // LÓGICA DO BOTÃO FINAL E CORRETA
+              // LÓGICA DO BOTÃO REVISADA
               // ==========================================================
               const isLobbyInGame = lobby.status === 'in_game';
-              const isUserInThisLobby = lobby.playerIds?.includes(userId || '-1'); // Usa -1 para nunca dar match se userId for null
+              // A API já nos diz quem está no jogo. Usamos essa informação.
+              const isUserInThisLobby = lobby.playerIds?.includes(userId || '-1'); 
               
               let buttonText = 'Entrar';
               let buttonEnabled = !isLobbyInGame;
@@ -241,12 +240,10 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
 
               if (isLobbyInGame) {
                 if (isUserInThisLobby) {
-                  // O jogo está em andamento E eu estou nele
                   buttonText = 'Voltar';
                   buttonEnabled = true;
                   buttonClass = 'bg-orange-500 hover:bg-orange-600';
                 } else {
-                  // O jogo está em andamento E eu NÃO estou nele
                   buttonText = 'Em Jogo';
                   buttonEnabled = false;
                   buttonClass = 'bg-gray-400 cursor-not-allowed';
@@ -275,7 +272,10 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
                   >
                     {buttonText}
                   </button>
-                  {lobby.created_by === Number(userId) && (
+                  {/* ========================================================== */}
+                  {/* CONDIÇÃO DO BOTÃO DELETAR CORRIGIDA */}
+                  {/* ========================================================== */}
+                  {lobby.creator_name === username && (
                     <button
                       onClick={() => openDeleteConfirmation(lobby)}
                       className="cursor-pointer px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"

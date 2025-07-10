@@ -216,7 +216,7 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
               const outerClasses = `cursor-pointer w-full aspect-video rounded-md p-1 transition-all duration-300 ${getBaseBg()} ${getTextColor()} ${isRevealed ? 'opacity-50 brightness-75' : 'hover:scale-105'} ${!isMyTurnToGuess || isRevealed ? 'cursor-not-allowed' : 'cursor-pointer'} ${isSpymaster && !isRevealed ? 'border-2 border-dashed border-gray-400' : 'border border-gray-300'}`;
               return (
                 <button key={card.word} disabled={!isMyTurnToGuess || isRevealed} onClick={() => handleMakeGuess(card.word)} className={outerClasses}>
-                  <div className="w-full h-full flex items-center justify-center rounded-sm border border-gray-500 border-dashed px-2 py-1">
+                  <div className="w-full h-full flex items-center justify-center rounded-sm border border-gray-500 border-dashed px-2 py-1" style={{ wordBreak: "break-word" }}>
                     <span className="text-xs md:text-base font-bold text-center break-words leading-tight">{card.word}</span>
                   </div>
                 </button>
