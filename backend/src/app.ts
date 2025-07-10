@@ -19,29 +19,29 @@ dotenv.config();
 
 const app = express();
 
-// Configuração CORS
-const allowedOrigins = [
-  'http://localhost',
-  'http://localhost:80',
-  'http://localhost:3000',
-  'http://localhost:5173',
-  'http://equipe01.alphaedtech.org.br'
-];
+// // Configuração CORS
+// const allowedOrigins = [
+//   'http://localhost',
+//   'http://localhost:80',
+//   'http://localhost:3000',
+//   'http://localhost:5173',
+//   'http://equipe01.alphaedtech.org.br'
+// ];
 
-const corsOptions = {
-  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization']
-};
-app.use(cors(corsOptions));
+// const corsOptions = {
+//   origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+//     if (!origin) return callback(null, true);
+//     if (allowedOrigins.indexOf(origin) !== -1) {
+//       callback(null, true);
+//     } else {
+//       callback(new Error('Not allowed by CORS'));
+//     }
+//   },
+//   credentials: true,
+//   methods: ['GET', 'POST', 'PUT', 'DELETE'],
+//   allowedHeaders: ['Content-Type', 'Authorization']
+// };
+// app.use(cors(corsOptions));
 
 // Middlewares
 app.use(express.json());
