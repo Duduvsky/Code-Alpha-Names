@@ -104,7 +104,7 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-blue-500 cursor-pointer text-white py-3 px-4 rounded-lg font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
+          className="cursor-pointer w-full bg-blue-500 cursor-pointer text-white py-3 px-4 rounded-lg font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
         >
           {isLoading ? 'Entrando...' : 'Entrar'}
         </button>
@@ -114,7 +114,7 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
         <button
           type="button"
           onClick={onSwitch}
-          className="text-primary hover:underline"
+          className="cursor-pointer text-primary hover:underline"
         >
           Não tem uma conta? Registre-se
         </button>

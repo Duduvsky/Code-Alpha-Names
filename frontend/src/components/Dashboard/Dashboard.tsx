@@ -11,7 +11,7 @@ interface DashboardProps {
   onBackToLanding: () => void;
 }
 
-const API_URL = import.meta.env.VITE_API_URL;
+// const API_URL = import.meta.env.VITE_API_URL;
 
 interface Lobby {
   id: number;
@@ -56,7 +56,7 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
 
   const fetchLobbys = useCallback(async () => {
     try {
-      const url = searchCode ? `${API_URL}/lobbys?search=${searchCode}` : `${API_URL}/lobbys`;
+      const url = searchCode ? `/api/lobbys?search=${searchCode}` : `/api/lobbys`;
       const response = await fetch(url, { credentials: 'include' });
       const data = await response.json();
       if (response.ok) {
@@ -72,9 +72,7 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
   const fetchMatchHistory = useCallback(async () => {
     if (!userId) return;
     try {
-      const response = await fetch(`${API_URL}/history?userId=${userId}`, {
-        credentials: 'include',
-      });
+      const response = await fetch(`/api/history?userId=${userId}`, { credentials: 'include' });
       const data = await response.json();
       if (response.ok) {
         setMatchHistory(data);
@@ -116,7 +114,7 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
       if (!payload.game_mode_id) {
           throw new Error(`Dificuldade inválida selecionada: ${lobbyDifficulty}`);
       }
-      const response = await fetch(`${API_URL}/lobbys`, {
+      const response = await fetch(`/api/lobbys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -137,7 +135,8 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
   };
 
   const attemptToEnterLobby = (lobby: Lobby) => {
-    if (lobby.is_private) {
+    const isUserInThisLobby = lobby.playerIds?.includes(userId || '-1');
+    if (lobby.is_private && !isUserInThisLobby) {
       setSelectedLobby(lobby);
       setIsPasswordModalOpen(true);
     } else {
@@ -148,7 +147,7 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
   const handleEnterPrivateLobby = async () => {
     if (!selectedLobby) return;
     try {
-      const response = await fetch(`${API_URL}/lobbys/${selectedLobby.code_lobby}/verify?password=${enteredPassword}`);
+      const response = await fetch(`/api/lobbys/${selectedLobby.code_lobby}/verify?password=${enteredPassword}`);
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message || "Senha incorreta ou erro ao verificar lobby.");
@@ -164,7 +163,7 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
 
   const handleLogout = async () => {
     try {
-      await fetch(`${API_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
+      await fetch(`/api/auth/logout`, { method: 'POST', credentials: 'include' });
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
     }
@@ -179,7 +178,7 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
   const handleDeleteLobby = async () => {
     if (!lobbyToDelete) return;
     try {
-      const response = await fetch(`${API_URL}/lobbys/${lobbyToDelete.id}`, {
+      const response = await fetch(`/api/lobbys/${lobbyToDelete.id}`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId: localStorage.getItem("userId") })
@@ -206,16 +205,10 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
       <div className="flex justify-between items-center">
         <h1 className="text-xl sm:text-3xl font-bold">Bem-vindo, {username}!</h1>
         <div className="flex gap-2">
-          <button
-            onClick={onBackToLanding}
-            className="px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition"
-          >
+          <button onClick={onBackToLanding} className="cursor-pointer px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition">
             Voltar ao Início
           </button>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
-          >
+          <button onClick={handleLogout} className="cursor-pointer px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
             Sair
           </button>
         </div>
@@ -224,20 +217,42 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-2xl font-bold">Lobbys</h2>
-            <button onClick={() => setIsCreateModalOpen(true)} className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition">
+            <button onClick={() => setIsCreateModalOpen(true)} className="cursor-pointer px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition">
               Criar Lobby
             </button>
           </div>
           <div className="mb-6 flex flex-wrap gap-2">
             <input type="text" placeholder="Buscar por código ou nome" value={searchCode} onChange={(e) => setSearchCode(e.target.value)} className="flex-1 p-2 border border-gray-300 rounded-lg min-w-[150px]"/>
-            <button onClick={() => setSearchCode('')} className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 transition">
+            <button onClick={() => setSearchCode('')} className="cursor-pointer px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 transition">
               Limpar
             </button>
           </div>
           <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
             {lobbies.length > 0 ? lobbies.map((lobby) => {
-              const wasInGame = lobby.status === 'in_game' && lobby.playerIds?.includes(userId || '');
-              const canEnter = lobby.status === 'waiting' || wasInGame;
+              // ==========================================================
+              // LÓGICA DO BOTÃO FINAL E CORRETA
+              // ==========================================================
+              const isLobbyInGame = lobby.status === 'in_game';
+              const isUserInThisLobby = lobby.playerIds?.includes(userId || '-1'); // Usa -1 para nunca dar match se userId for null
+              
+              let buttonText = 'Entrar';
+              let buttonEnabled = !isLobbyInGame;
+              let buttonClass = 'bg-green-500 hover:bg-green-600';
+
+              if (isLobbyInGame) {
+                if (isUserInThisLobby) {
+                  // O jogo está em andamento E eu estou nele
+                  buttonText = 'Voltar';
+                  buttonEnabled = true;
+                  buttonClass = 'bg-orange-500 hover:bg-orange-600';
+                } else {
+                  // O jogo está em andamento E eu NÃO estou nele
+                  buttonText = 'Em Jogo';
+                  buttonEnabled = false;
+                  buttonClass = 'bg-gray-400 cursor-not-allowed';
+                }
+              }
+
               return (
               <li key={lobby.id} className="flex justify-between items-center bg-gray-50 shadow p-3 rounded-lg">
                 <div className="flex items-center gap-3">
@@ -255,19 +270,15 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
                 <div className="flex gap-2">
                   <button
                     onClick={() => attemptToEnterLobby(lobby)}
-                    disabled={!canEnter}
-                    className={`px-3 py-1 text-white rounded transition-colors ${
-                      canEnter
-                        ? 'bg-green-500 hover:bg-green-600'
-                        : 'bg-gray-400 cursor-not-allowed'
-                    }`}
+                    disabled={!buttonEnabled}
+                    className={`cursor-pointer px-3 py-1 text-white rounded transition-colors ${buttonClass}`}
                   >
-                    {wasInGame ? 'Reconectar' : 'Entrar'}
+                    {buttonText}
                   </button>
-                  {lobby.creator_name === username && (
+                  {lobby.created_by === Number(userId) && (
                     <button
                       onClick={() => openDeleteConfirmation(lobby)}
-                      className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
+                      className="cursor-pointer px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
                     >
                       Deletar
                     </button>
@@ -302,20 +313,20 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
       </div>
       {isCreateModalOpen && (<CreateLobbyModal lobbyName={lobbyName} setLobbyName={setLobbyName} lobbyDifficulty={lobbyDifficulty} setLobbyDifficulty={setLobbyDifficulty} difficultyOptions={difficultyOptions} lobbyPassword={lobbyPassword} setLobbyPassword={setLobbyPassword} onClose={() => setIsCreateModalOpen(false)} onConfirm={handleCreateLobby}/>)}
       {isPasswordModalOpen && selectedLobby && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-black">
             <h3 className="text-xl font-bold mb-4">Entrar em Sala Privada</h3>
             <p className="mb-4">O lobby "{selectedLobby.name}" é protegido por senha.</p>
             <input type="password" placeholder="Digite a senha" value={enteredPassword} onChange={(e) => setEnteredPassword(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg mb-4" autoFocus />
             <div className="flex justify-end gap-4">
-              <button onClick={() => setIsPasswordModalOpen(false)} className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancelar</button>
-              <button onClick={handleEnterPrivateLobby} className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Entrar</button>
+              <button onClick={() => setIsPasswordModalOpen(false)} className="cursor-pointer px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancelar</button>
+              <button onClick={handleEnterPrivateLobby} className="cursor-pointer px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Entrar</button>
             </div>
           </div>
         </div>
       )}
       {isDeleteModalOpen && lobbyToDelete && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-black">
             <div className="flex items-center gap-4 mb-4">
               <div className="bg-red-100 p-2 rounded-full"><ExclamationTriangleIcon className="h-6 w-6 text-red-600" /></div>
@@ -323,8 +334,8 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
             </div>
             <p className="mb-6">Tem certeza que deseja deletar o lobby <span className="font-bold">"{lobbyToDelete.name}"</span>? Esta ação não pode ser desfeita.</p>
             <div className="flex justify-end gap-4">
-              <button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancelar</button>
-              <button onClick={handleDeleteLobby} className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Deletar</button>
+              <button onClick={() => setIsDeleteModalOpen(false)} className="cursor-pointer px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancelar</button>
+              <button onClick={handleDeleteLobby} className="cursor-pointer px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Deletar</button>
             </div>
           </div>
         </div>

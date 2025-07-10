@@ -1,5 +1,3 @@
-// src/game/Game.ts
-
 import { WebSocket } from 'ws';
 import palavrasData from './palavras_jogo.json';
 import { pool } from '../db';
@@ -230,6 +228,8 @@ export class Game {
             switch (message.type) {
                 case 'START_GAME': this.startGame(); break;
                 case 'JOIN_TEAM': this.joinTeam(sendingPlayer, message.payload.team, message.payload.role); break;
+                case 'LEAVE_TEAM': this.leaveTeam(sendingPlayer); break;
+                case 'EXIT_LOBBY': this.exitLobby(sendingPlayer); break;
                 case 'GIVE_CLUE': this.giveClue(sendingPlayer, message.payload.clue, message.payload.count); break;
                 case 'MAKE_GUESS': this.makeGuess(sendingPlayer, message.payload.word); break;
                 case 'PASS_TURN': this.passTurn(sendingPlayer); break;
@@ -327,6 +327,38 @@ export class Game {
         const roleName = role === 'spymaster' ? "Espião Mestre" : "Agente";
         this.log.push(`${player.username} entrou no Time ${teamName} como ${roleName}.`);
         this.broadcastState();
+    }
+    
+    private leaveTeam(player: Player) {
+        if (this.gamePhase !== 'waiting') {
+            this.sendErrorToPlayer(player, "Você não pode deixar o time após o início do jogo.");
+            return;
+        }
+        if (!player.team) {
+            return;
+        }
+        const oldTeamName = player.team === 'A' ? "Azul" : "Vermelho";
+        this.log.push(`ℹ️ ${player.username} deixou o Time ${oldTeamName}.`);
+        console.log(`[Game] Jogador ${player.username} deixou seu time no lobby ${this.lobbyId}`);
+        player.team = undefined;
+        player.role = undefined;
+        this.broadcastState();
+    }
+
+    private exitLobby(player: Player) {
+        this.players.delete(player.id);
+        this.log.push(`🚪 ${player.username} saiu da sala.`);
+        console.log(`[Game] Jogador ${player.username} saiu permanentemente do lobby ${this.lobbyId}.`);
+        if (Number(player.id) === this.creatorId) {
+            this.log.push(`🚨 O criador da sala saiu. O jogo foi encerrado.`);
+            this.broadcastMessage({ type: 'LOBBY_CLOSED', payload: { reason: 'O criador da sala saiu.' } });
+            this.players.forEach(p => p.ws?.close(1000, 'O criador encerrou a sala.'));
+            this.players.clear();
+            updateLobbyStatus(this.lobbyId, 'finished');
+        } else {
+            this.broadcastState();
+        }
+        player.ws?.close(1000, 'Left the lobby');
     }
     
     private giveClue(player: Player, clue: string, count: number) {
@@ -485,5 +517,14 @@ export class Game {
                 player.ws.send(messageStr);
             }
         });
+    }
+
+    private sendErrorToPlayer(player: Player, errorMessage: string) {
+        if (player.ws && player.ws.readyState === WebSocket.OPEN) {
+            player.ws.send(JSON.stringify({
+                type: 'ERROR',
+                payload: { message: errorMessage }
+            }));
+        }
     }
 }

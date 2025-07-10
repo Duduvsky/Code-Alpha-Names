@@ -50,17 +50,17 @@ export default function LandingPage({ onStart }: LandingPageProps) {
           <a href="#carousel" className="hover:underline">Início</a>
           <a href="#about" className="hover:underline">Como Jogar</a>
           <a href="#team" className="hover:underline">Equipe</a>
-          <button onClick={onStart} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500">Jogar Agora</button>
+          <button onClick={onStart} className="cursor-pointer bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500">Jogar Agora</button>
           <button
             onClick={() => setDarkMode(!darkMode)}
-            className="ml-2 p-2 rounded-full hover:scale-110 transition-all"
+            className="cursor-pointer ml-2 p-2 rounded-full hover:scale-110 transition-all"
             title={darkMode ? "Tema Claro" : "Tema Escuro"}
           >
             <span className="text-2xl">{darkMode ? "🌞" : "💡"}</span>
           </button>
         </nav>
 
-        <button className="md:hidden" onClick={() => setMenuOpen(!menuOpen)}>☰</button>
+        <button className="cursor-pointer md:hidden" onClick={() => setMenuOpen(!menuOpen)}>☰</button>
       </header>
 
       {/* Mobile Menu */}
@@ -70,12 +70,12 @@ export default function LandingPage({ onStart }: LandingPageProps) {
           <a href="#about" onClick={() => setMenuOpen(false)} className="block py-2">Como Jogar</a>
           <a href="#team" onClick={() => setMenuOpen(false)} className="block py-2">Equipe</a>
           <div className="flex gap-2">
-            <button onClick={() => { setMenuOpen(false); onStart(); }} className="block w-full mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500">
+            <button onClick={() => { setMenuOpen(false); onStart(); }} className="cursor-pointer block w-full mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-500">
               Jogar Agora
             </button>
             <button
                 onClick={() => setDarkMode(!darkMode)}
-                className="mt-4 p-2 rounded-full hover:scale-110 transition-all"
+                className="cursor-pointer mt-4 p-2 rounded-full hover:scale-110 transition-all"
             >
                 <span className="text-2xl">{darkMode ? "🌞" : "💡"}</span>
             </button>
@@ -167,7 +167,7 @@ export default function LandingPage({ onStart }: LandingPageProps) {
 
           {/* Botão */}
           <div className="text-center mt-8">
-            <button onClick={onStart} className="bg-yellow-600 text-gray-900 font-bold px-8 py-3 rounded-full hover:bg-yellow-500 transition">
+            <button onClick={onStart} className="cursor-pointer bg-yellow-600 text-gray-900 font-bold px-8 py-3 rounded-full hover:bg-yellow-500 transition">
               → Jogar Agora!
             </button>
           </div>

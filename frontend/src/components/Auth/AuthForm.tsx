@@ -32,7 +32,7 @@ const AuthForm = ({ onLogin, goBack }: AuthFormProps) => {
       {goBack && (
         <button
           onClick={goBack}
-          className="fixed top-4 left-4 flex items-center gap-2 text-sm text-blue-600 border border-blue-600 px-3 py-1 rounded hover:bg-blue-50 transition z-50"
+          className="cursor-pointer fixed top-4 left-4 flex items-center gap-2 text-sm text-blue-600 border border-blue-600 px-3 py-1 rounded hover:bg-blue-50 transition z-50"
         >
           ← Voltar para o início
         </button>

@@ -126,7 +126,7 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
                     />
                     <button
                         onClick={handleSendMessage}
-                        className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-500 disabled:opacity-50 transition-colors"
+                        className="cursor-pointer px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-500 disabled:opacity-50 transition-colors"
                         disabled={!newMessage.trim()}
                     >
                         Enviar

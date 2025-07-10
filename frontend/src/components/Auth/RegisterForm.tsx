@@ -35,7 +35,9 @@ const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
       });
 
       if (!response.ok) {
-        notify("Erro ao criar conta", "error");
+        const errorData = await response.json();
+        notify("Erro ao criar conta: " + (errorData.message || response.statusText), "error");
+        return;
       }
 
       notify("Conta criada com sucesso!", "success");
@@ -121,7 +123,7 @@ const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
+          className="cursor-pointer w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
         >
           {isLoading ? 'Criando conta...' : 'Criar conta'}
         </button>
@@ -131,7 +133,7 @@ const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
         <button
           type="button"
           onClick={onSwitch}
-          className="text-primary hover:underline"
+          className="cursor-pointer text-primary hover:underline"
         >
           Já tem uma conta? Faça login
         </button>
