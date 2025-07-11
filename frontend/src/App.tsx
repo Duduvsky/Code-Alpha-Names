@@ -15,10 +15,6 @@ interface ActiveLobby {
   difficulty: Difficulty;
 }
 
-// --- Constantes ---
-// Usar uma constante para a chave do localStorage evita erros de digitação.
-const ACTIVE_LOBBY_KEY = 'codenames_active_lobby';
-
 // --- Componente principal ---
 function App() {
   const sessionState = useMultiTabPrevention();
@@ -33,26 +29,36 @@ function App() {
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        const res = await fetch(`/api/auth/me`, { credentials: 'include' });
-        if (res.ok) {
-          const userData = await res.json();
+        // 1. Primeiro, autentica para saber QUEM é o usuário
+        const authRes = await fetch(`/api/auth/me`, { credentials: 'include' });
+
+        if (authRes.ok) {
+          const userData = await authRes.json();
           localStorage.setItem("userId", userData.id);
           localStorage.setItem("username", userData.username);
           setIsAuthenticated(true);
 
-          // <<< MUDANÇA: Lendo do localStorage >>>
-          const savedLobbyJson = localStorage.getItem(ACTIVE_LOBBY_KEY);
-          if (savedLobbyJson) {
-            console.log("[App] Lobby salvo encontrado no localStorage. Restaurando sessão.");
-            const lobbyData: ActiveLobby = JSON.parse(savedLobbyJson);
-            setActiveLobby(lobbyData);
+          // <<< MUDANÇA PRINCIPAL AQUI >>>
+          // 2. Se autenticado, pergunta ao SERVIDOR onde o usuário deveria estar.
+          console.log("[App] Usuário autenticado. Verificando estado da sessão no servidor...");
+          const sessionRes = await fetch(`/api/session/state`, { credentials: 'include' });
+          
+          if (sessionRes.ok) {
+            const sessionData = await sessionRes.json();
+            // Se o servidor retornar um lobby ativo, atualizamos nosso estado.
+            if (sessionData.activeLobby) {
+              console.log("[App] Servidor informou lobby ativo. Restaurando sessão para:", sessionData.activeLobby);
+              setActiveLobby(sessionData.activeLobby);
+            } else {
+              console.log("[App] Servidor informou que não há lobby ativo.");
+            }
           }
         } else {
-          // Se a verificação falhar, chama o logout sem a chamada da API.
+          // Se a autenticação falhar, limpa tudo.
           handleLogout(false);
         }
       } catch (err) {
-        console.error("Falha na verificação de autenticação:", err);
+        console.error("Falha na inicialização da aplicação:", err);
         handleLogout(false);
       } finally {
         setAuthStatus('checked');
@@ -63,52 +69,53 @@ function App() {
 
   // --- Handlers de Ações ---
   const handleLoginSuccess = () => {
-    setIsAuthenticated(true);
-    setShowLogin(false);
+    // Após o login, a página vai recarregar ou a lógica de inicialização
+    // vai rodar novamente, então só precisamos atualizar o estado de autenticação.
+    // Para forçar a verificação de sessão, podemos simplesmente recarregar.
+    window.location.reload();
   };
-
+  
+  // <<< MUDANÇA >>>
+  // O handleLogout continua importante para limpar o estado LOCAL do React.
   const handleLogout = (performApiCall = true) => {
     if (performApiCall) {
+      // O backend DEVE limpar o `current_lobby_code` do usuário na rota de logout.
+      // Se não fizer, adicione essa lógica lá.
       fetch(`/api/auth/logout`, { method: 'POST', credentials: 'include' }).catch(console.error);
     }
     localStorage.removeItem("userId");
     localStorage.removeItem("username");
-    
-    // <<< MUDANÇA: Limpando o lobby ativo do localStorage >>>
-    localStorage.removeItem(ACTIVE_LOBBY_KEY);
-
+    // Não precisamos mais mexer em chaves de lobby no localStorage/sessionStorage.
     setIsAuthenticated(false);
     setActiveLobby(null);
     setShowLogin(false);
   };
-
+  
+  // <<< MUDANÇA >>>
+  // Esta função agora é muito mais simples. Ela apenas atualiza o estado do React
+  // para mudar a tela. O backend já foi notificado pelo WebSocket e já atualizou o DB.
   const handleEnterLobby = (lobbyId: string, difficulty: Difficulty) => {
-    const lobbyData: ActiveLobby = { id: lobbyId, difficulty };
-    
-    // <<< MUDANÇA: Salvando o lobby ativo no localStorage >>>
-    localStorage.setItem(ACTIVE_LOBBY_KEY, JSON.stringify(lobbyData));
-    setActiveLobby(lobbyData);
+    console.log(`[App] Entrando no lobby ${lobbyId}. Atualizando estado da UI.`);
+    setActiveLobby({ id: lobbyId, difficulty });
   };
-
+  
+  // <<< MUDANÇA >>>
+  // Esta função também fica mais simples. Apenas limpa o estado do React.
   const handleExitLobby = () => {
-    // <<< MUDANÇA: Removendo o lobby ativo do localStorage >>>
-    localStorage.removeItem(ACTIVE_LOBBY_KEY);
+    console.log("[App] Saindo do lobby. Limpando estado da UI.");
     setActiveLobby(null);
   };
 
-  // --- Derivação de Variáveis ---
+  // --- Derivação de Variáveis (sem mudança aqui) ---
   const gameWsUrl = activeLobby
     ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/game/${activeLobby.id}`
     : null;
 
-  // --- Lógica de Renderização ---
-
-  // 1. Bloqueador de múltiplas abas
+  // --- Lógica de Renderização (sem mudança aqui) ---
   if (sessionState === 'BLOCKED') {
     return <MultiTabBlocker />;
   }
   
-  // 2. Tela de carregamento inicial
   if (authStatus === 'checking' || sessionState === 'CHECKING') {
     return (
         <div className="h-screen flex flex-col items-center justify-center bg-gray-100">
@@ -118,18 +125,15 @@ function App() {
     );
   }
 
-  // 3. Renderização principal baseada no estado
   return (
     <WebSocketProvider url={gameWsUrl}>
       {!isAuthenticated ? (
-        // Se não estiver autenticado, mostra Landing Page ou AuthForm
         showLogin ? (
           <AuthForm onLogin={handleLoginSuccess} goBack={() => setShowLogin(false)} />
         ) : (
           <LandingPage onStart={() => setShowLogin(true)} />
         )
       ) : activeLobby ? (
-        // Se estiver autenticado E em um lobby, mostra a tela do jogo
         <GameScreen 
           difficulty={activeLobby.difficulty} 
           onExit={handleExitLobby}
@@ -138,7 +142,6 @@ function App() {
           username={localStorage.getItem("username") || ""}
         />
       ) : (
-        // Se estiver autenticado mas NÃO em um lobby, mostra o Dashboard
         <Dashboard 
           onLogout={handleLogout}
           onEnterLobby={handleEnterLobby}

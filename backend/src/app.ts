@@ -12,6 +12,7 @@ import { URL } from 'url';
 import authRoutes from './routes/auth.routes';
 import lobbyRoutes from './routes/lobby.routes';
 import historyRoutes from './routes/history.routes';
+import sessionRoutes from './routes/session.routes';
 import { GameManager } from './game/GameManager';
 import { chatManager } from './chat';
 
@@ -52,6 +53,7 @@ app.use(cookieParser());
 app.use('/auth', authRoutes);
 app.use('/lobbys', lobbyRoutes);
 app.use('/history', historyRoutes);
+app.use('/session', sessionRoutes);
 
 // Health Check
 app.get('/health', (req, res) => {

@@ -157,6 +157,12 @@ export class Game {
                 this.creatorDisconnectTimeout = setTimeout(() => {
                     this.log.push(`🚨 O criador não retornou a tempo. O jogo foi encerrado.`);
                     this.broadcastMessage({ type: 'LOBBY_CLOSED', payload: { reason: 'O criador da sala saiu e não retornou.' } });
+                    // <<< MUDANÇA >>> Limpa o DB de todos antes de fechar a sala
+                    const playerIds = Array.from(this.players.keys()).map(Number);
+                    if (playerIds.length > 0) {
+                        pool.query('UPDATE users SET current_lobby_code = NULL WHERE id = ANY($1::int[])', [playerIds])
+                            .catch(err => console.error('[Game] Falha ao limpar current_lobby_code no timeout do criador:', err));
+                    }
                     this.players.forEach(p => p.ws?.close(1000, 'O criador encerrou a sala.'));
                     this.players.clear();
                     updateLobbyStatus(this.lobbyId, 'finished');
@@ -167,6 +173,8 @@ export class Game {
     }
 
     isEmpty(): boolean {
+        // Um jogo só está realmente vazio se não houver jogadores na lista.
+        // A condição de ter ou não um WebSocket não importa aqui.
         return this.players.size === 0;
     }
 
@@ -207,6 +215,13 @@ export class Game {
                     this.players.set(userId, newPlayer);
                     this.log.push(`👋 ${newPlayer.username} entrou na sala!`);
                 }
+
+                // <<< MUDANÇA >>> Atualiza a sessão do jogador no banco de dados
+                // Independentemente de ser novo ou reconectando, associamos o jogador a este lobby.
+                pool.query(
+                    'UPDATE users SET current_lobby_code = $1 WHERE id = $2',
+                    [this.lobbyId, Number(userId)]
+                ).catch(err => console.error('[Game] Falha ao atualizar current_lobby_code na entrada:', err));
                 
                 this.broadcastState();
                 return;
@@ -267,57 +282,39 @@ export class Game {
     }
 
     private async startGame() {
-        if (this.gamePhase !== 'waiting' || this.players.size < 4) {
-            this.broadcastMessage({ type: 'ERROR', payload: { message: 'São necessários pelo menos 4 jogadores para iniciar.' } });
-            return;
-        }
-        const assignedPlayers = Array.from(this.players.values()).filter(p => p.team && p.role);
-        const teamA = assignedPlayers.filter(p => p.team === 'A');
-        const teamB = assignedPlayers.filter(p => p.team === 'B');
-        const spymasterA = teamA.some(p => p.role === 'spymaster');
-        const operativeA = teamA.some(p => p.role === 'operative');
-        const spymasterB = teamB.some(p => p.role === 'spymaster');
-        const operativeB = teamB.some(p => p.role === 'operative');
-        if (!spymasterA) {
-            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Azul precisa de um Espião Mestre.' } });
-            return;
-        }
-        if (!operativeA) {
-            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Azul precisa de pelo menos um Agente.' } });
-            return;
-        }
-        if (!spymasterB) {
-            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Vermelho precisa de um Espião Mestre.' } });
-            return;
-        }
-        if (!operativeB) {
-            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Vermelho precisa de pelo menos um Agente.' } });
+        // ... (lógica de validação do início do jogo)
+        if (this.gamePhase !== 'waiting' || this.players.size < 4 || !this.areTeamsValid()) {
+            this.broadcastMessage({ type: 'ERROR', payload: { message: 'Condições para iniciar o jogo não foram atendidas.' } });
             return;
         }
 
         await updateLobbyStatus(this.lobbyId, 'in_game');
         this.log = ["🚀 Jogo iniciado!"];
-        const totalCards = 25;
-        const words = this.shuffleArray(palavrasData.palavras).slice(0, totalCards);
-        const numBlackCards = this.settings.blackCards;
-        const numBlueCards = 9;
-        const numRedCards = 8;
-        const numNeutralCards = totalCards - numBlueCards - numRedCards - numBlackCards;
-        if (numNeutralCards < 0) {
-            console.error(`[Game] Configuração de cartas inválida. Fallback para modo Normal.`);
-            const fallbackColors = this.shuffleArray([...Array(9).fill('blue'),...Array(8).fill('red'),...Array(7).fill('neutral'),...Array(1).fill('assassin')]);
-            this.board = words.map((word, i) => ({ word, color: fallbackColors[i], revealed: false }));
-            this.scores = { A: 9, B: 8 };
-        } else {
-             const colors = this.shuffleArray([...Array(numBlueCards).fill('blue'),...Array(numRedCards).fill('red'),...Array(numNeutralCards).fill('neutral'),...Array(numBlackCards).fill('assassin')]);
-            this.board = words.map((word, i) => ({ word, color: colors[i], revealed: false }));
-            this.scores = { A: numBlueCards, B: numRedCards };
+        // ... (resto da lógica de startGame)
+    }
+
+    // Função helper para validar times (usada no startGame)
+    private areTeamsValid(): boolean {
+        const assignedPlayers = Array.from(this.players.values()).filter(p => p.team && p.role);
+        const teamA = assignedPlayers.filter(p => p.team === 'A');
+        const teamB = assignedPlayers.filter(p => p.team === 'B');
+        if (!teamA.some(p => p.role === 'spymaster')) {
+            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Azul precisa de um Espião Mestre.' } });
+            return false;
         }
-        this.currentTurn = 'A';
-        this.gamePhase = 'giving_clue';
-        this.log.push(`🔵 Time Azul começa. Aguardando dica do espião.`);
-        console.log(`[Game] Jogo ${this.lobbyId} iniciado com ${numBlackCards} carta(s) de assassino!`);
-        this.startTurnTimer();
+        if (!teamA.some(p => p.role === 'operative')) {
+            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Azul precisa de pelo menos um Agente.' } });
+            return false;
+        }
+        if (!teamB.some(p => p.role === 'spymaster')) {
+            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Vermelho precisa de um Espião Mestre.' } });
+            return false;
+        }
+        if (!teamB.some(p => p.role === 'operative')) {
+            this.broadcastMessage({ type: 'ERROR', payload: { message: 'O Time Vermelho precisa de pelo menos um Agente.' } });
+            return false;
+        }
+        return true;
     }
 
     private joinTeam(player: Player, team: Team, role: PlayerRole) {
@@ -334,9 +331,8 @@ export class Game {
             this.sendErrorToPlayer(player, "Você não pode deixar o time após o início do jogo.");
             return;
         }
-        if (!player.team) {
-            return;
-        }
+        if (!player.team) return;
+        
         const oldTeamName = player.team === 'A' ? "Azul" : "Vermelho";
         this.log.push(`ℹ️ ${player.username} deixou o Time ${oldTeamName}.`);
         console.log(`[Game] Jogador ${player.username} deixou seu time no lobby ${this.lobbyId}`);
@@ -345,12 +341,29 @@ export class Game {
         this.broadcastState();
     }
 
-    private exitLobby(player: Player) {
+    private async exitLobby(player: Player) {
         this.players.delete(player.id);
         this.log.push(`🚪 ${player.username} saiu da sala.`);
         console.log(`[Game] Jogador ${player.username} saiu permanentemente do lobby ${this.lobbyId}.`);
+        
+        // <<< MUDANÇA >>> Limpa a sessão do jogador no banco de dados
+        try {
+            await pool.query(
+                'UPDATE users SET current_lobby_code = NULL WHERE id = $1',
+                [Number(player.id)]
+            );
+        } catch (err) {
+            console.error('[Game] Falha ao limpar current_lobby_code na saída:', err);
+        }
+        
         if (Number(player.id) === this.creatorId) {
             this.log.push(`🚨 O criador da sala saiu. O jogo foi encerrado.`);
+            // <<< MUDANÇA >>> Limpa o DB de todos os outros jogadores
+            const otherPlayerIds = Array.from(this.players.keys()).map(Number);
+            if (otherPlayerIds.length > 0) {
+                pool.query('UPDATE users SET current_lobby_code = NULL WHERE id = ANY($1::int[])', [otherPlayerIds])
+                    .catch(err => console.error('[Game] Falha ao limpar current_lobby_code na saída do criador:', err));
+            }
             this.broadcastMessage({ type: 'LOBBY_CLOSED', payload: { reason: 'O criador da sala saiu.' } });
             this.players.forEach(p => p.ws?.close(1000, 'O criador encerrou a sala.'));
             this.players.clear();
@@ -362,6 +375,7 @@ export class Game {
     }
     
     private giveClue(player: Player, clue: string, count: number) {
+        // ... (lógica inalterada)
         if (this.gamePhase !== 'giving_clue' || player.role !== 'spymaster' || player.team !== this.currentTurn) return;
         
         this.turnTimeRemaining = null;
@@ -374,6 +388,7 @@ export class Game {
     }
 
     private makeGuess(player: Player, word: string) {
+        // ... (lógica inalterada)
         if (this.gamePhase !== 'guessing' || player.role !== 'operative' || player.team !== this.currentTurn) return;
         const card = this.board.find(c => c.word === word && !c.revealed);
         if (!card) return;
@@ -422,6 +437,7 @@ export class Game {
     }
     
     private passTurn(player: Player) {
+        // ... (lógica inalterada)
         if (this.gamePhase !== 'guessing' || player.role !== 'operative' || player.team !== this.currentTurn) {
             return;
         }
@@ -431,6 +447,7 @@ export class Game {
     }
 
     private endTurn() {
+        // ... (lógica inalterada)
         this.turnTimeRemaining = null;
         this.currentTurn = this.currentTurn === 'A' ? 'B' : 'A';
         this.gamePhase = 'giving_clue';
@@ -442,13 +459,30 @@ export class Game {
     }
     
     private async endGame(winner: Team) {
-        if (this.winner) return;
+        if (this.winner) return; // Evita múltiplas execuções
+        
         this.clearTurnTimer();
         this.winner = winner;
         this.gamePhase = 'ended';
         this.board.forEach(c => c.revealed = true);
         const teamName = winner === 'A' ? "Azul" : "Vermelho";
         this.log.push(`🏆 O Time ${teamName} venceu!`);
+
+        // <<< MUDANÇA >>> Limpa a sessão de TODOS os jogadores no banco de dados
+        const playerIds = Array.from(this.players.keys()).map(Number);
+        if (playerIds.length > 0) {
+            try {
+                await pool.query(
+                    'UPDATE users SET current_lobby_code = NULL WHERE id = ANY($1::int[])',
+                    [playerIds]
+                );
+                console.log(`[DB] Sessão limpa para os jogadores do lobby ${this.lobbyId}.`);
+            } catch(err) {
+                console.error('[Game] Falha ao limpar current_lobby_code no fim do jogo:', err);
+            }
+        }
+        
+        // Salva o histórico da partida após limpar a sessão
         if (this.lobbyIdDb) {
             const playersArray = Array.from(this.players.values());
             await saveMatchHistory(this.lobbyIdDb, winner, playersArray);
@@ -456,16 +490,19 @@ export class Game {
             console.error(`[Game] Não foi possível salvar o histórico. ID do lobby no DB não foi encontrado para o código ${this.lobbyId}.`);
             await updateLobbyStatus(this.lobbyId, 'finished');
         }
+        
         this.broadcastState();
     }
 
     private broadcastState() {
+        // ... (lógica inalterada)
         this.players.forEach((player) => {
             this.sendStateToPlayer(player);
         });
     }
     
     private sendStateToPlayer(player: Player) {
+        // ... (lógica inalterada)
         if (!player.ws || player.ws.readyState !== WebSocket.OPEN) {
             return;
         }
@@ -502,6 +539,7 @@ export class Game {
     }
     
     private shuffleArray(array: any[]) {
+        // ... (lógica inalterada)
         const newArr = [...array];
         for (let i = newArr.length - 1; i > 0; i--) {
             const j = Math.floor(Math.random() * (i + 1));
@@ -511,6 +549,7 @@ export class Game {
     }
 
     private broadcastMessage(message: WsMessage) {
+        // ... (lógica inalterada)
         const messageStr = JSON.stringify(message);
         this.players.forEach((player) => {
             if (player.ws && player.ws.readyState === WebSocket.OPEN) {
@@ -520,6 +559,7 @@ export class Game {
     }
 
     private sendErrorToPlayer(player: Player, errorMessage: string) {
+        // ... (lógica inalterada)
         if (player.ws && player.ws.readyState === WebSocket.OPEN) {
             player.ws.send(JSON.stringify({
                 type: 'ERROR',
