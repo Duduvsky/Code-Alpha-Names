@@ -295,18 +295,41 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
               return (<div className="bg-gray-700 p-3 rounded-lg shadow-md text-center">Aguardando dica do espião do time {currentTeamName}...</div>);
             })()}
           </div>
+          {(isMyTurnToGiveClue || isMyTurnToGuess) && (
+            <div className="max-w-xl mt-4 w-full mb-2 bg-gray-800 border border-gray-600 p-4 rounded-lg shadow text-sm text-gray-300">
+              {isMyTurnToGiveClue ? (
+                <>
+                  <p className="mb-1">
+                    🎯 <strong>Você é o espião mestre!</strong> Escolha uma palavra que se relacione com <strong>as palavras do seu time</strong>.
+                  </p>
+                  <p>
+                    Informe também <strong>quantas palavras</strong> estão relacionadas à dica. Evite qualquer pista direta ou similaridade com palavras da grade.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="mb-1">
+                    🧠 <strong>Sua vez de adivinhar!</strong> A dica recebida foi: <strong>{gameState.currentClue?.word} ({gameState.currentClue?.count})</strong>.
+                  </p>
+                  <p>
+                    Pense nas palavras da grade que se conectam com a dica. Você pode tentar até <strong>{gameState.guessesRemaining}</strong> vezes, mas cuidado: se errar, passa a vez!
+                  </p>
+                </>
+              )}
+            </div>
+          )}
         </div>
         <div className="hidden md:flex flex-col w-1/5 min-h-0 gap-4">
           <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded shadow p-2 flex-1 flex flex-col min-h-0">
             <div className="font-bold mb-2">Log do Jogo</div>
-            <div className="flex-1 min-h-0 max-h-[170px] bg-gray-900 rounded p-2 overflow-y-auto text-sm space-y-1">
+            <div className="flex-1 min-h-0 max-h-[25vh] bg-gray-900 rounded p-2 overflow-y-auto text-sm space-y-1">
               {(gameState.log || []).map((entry, i) => (
                 <div key={i}>{entry}</div>
               ))}
               <div ref={logEndRefDesktop} />
             </div>
           </div>
-          <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded shadow p-2 flex flex-col min-h-0 h-[380px]">
+          <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded shadow p-2 flex flex-col min-h-0 h-[55vh]">
             <div className="font-bold mb-2">Chat</div>
             <div className="flex-1 overflow-hidden">
               <Chat lobbyId={lobbyId} userId={userId} username={username} />

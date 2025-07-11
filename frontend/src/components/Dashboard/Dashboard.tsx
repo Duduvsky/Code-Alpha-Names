@@ -256,7 +256,7 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
         {/* Coluna da esquerda: Lobbys + Histórico */}
         <div className="flex flex-col gap-6 w-full lg:w-1/2">
           {/* Lobbys */}
-          <div className="bg-gray-800 bg-opacity-70 border border-gray-700 p-6 rounded-lg shadow flex flex-col h-[50%] min-h-[300px]">
+          <div className="bg-gray-800 bg-opacity-70 border border-gray-700 p-6 rounded-lg shadow flex flex-col h-[60%] min-h-[380px]">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold">Lobbys</h2>
               <button onClick={() => setIsCreateModalOpen(true)} className="cursor-pointer px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition">Criar Lobby</button>
@@ -326,30 +326,44 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
           </div>
 
           {/* Histórico */}
-          <div className="bg-gray-800 bg-opacity-70 border border-gray-700 p-6 rounded-lg shadow flex-1 overflow-y-auto">
-            <h2 className="text-xl font-bold mb-4">Histórico de Partidas</h2>
+          <div className="bg-gray-800 bg-opacity-70 border border-gray-700 p-6 rounded-lg shadow flex-1 flex flex-col">
+            <h2 className="text-xl font-bold mb-4 flex-shrink-0">Histórico de Partidas</h2>
+            
             {matchHistory.length > 0 ? (
-              <ul className="space-y-3">
-                {matchHistory.map((match) => (
-                  <li key={match.lobbyId} className={`p-3 rounded border-l-4 ${match.userWon ? 'bg-green-900 border-green-500' : 'bg-red-900 border-red-500'}`}>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-semibold">{match.lobbyName}</p>
-                        <p className="text-sm text-gray-300">
-                          <span className="font-medium">{match.userWon ? 'Vitória' : 'Derrota'}</span> • Modo: {match.difficulty}
-                        </p>
+              <div className="overflow-y-auto flex-1 max-h-[150px] pr-1">
+                <ul className="space-y-3">
+                  {matchHistory.map((match) => (
+                    <li
+                      key={match.lobbyId}
+                      className={`p-3 rounded border-l-4 transition-all duration-200 cursor-pointer hover:shadow-md ${
+                        match.userWon
+                          ? 'bg-green-900 border-green-500 hover:bg-green-800'
+                          : 'bg-red-900 border-red-500 hover:bg-red-800'
+                      }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className="font-semibold">{match.lobbyName}</p>
+                          <p className="text-sm text-gray-300">
+                            <span className="font-medium">
+                              {match.userWon ? 'Vitória' : 'Derrota'}
+                            </span>{' '}
+                            • Modo: {match.difficulty}
+                          </p>
+                        </div>
+                        <span className="text-sm text-gray-400">
+                          {new Date(match.finishedAt).toLocaleDateString('pt-BR')}
+                        </span>
                       </div>
-                      <span className="text-sm text-gray-400">
-                        {new Date(match.finishedAt).toLocaleDateString('pt-BR')}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             ) : (
-              <p className="text-center text-gray-400">Nenhuma partida registrada ainda.</p>
+              <p className="text-center text-gray-400 flex-1">Nenhuma partida registrada ainda.</p>
             )}
           </div>
+
         </div>
 
         {/* Coluna da direita: Regras */}
@@ -368,7 +382,7 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
               <ul className="list-disc list-inside text-gray-300">
                 <li>Espião: 5 minutos</li>
                 <li>Agentes: 5 minutos</li>
-                <li>Cartas: 9 Azuis, 8 Vermelhas, 1 Preta (assassino), 7 Neutras</li>
+                <li>Cartas: 9 Azuis, 8 Vermelhas, 1 Preta, 7 Neutras</li>
               </ul>
             </div>
             <div className="bg-gray-900 p-4 rounded border border-gray-700">
