@@ -4,9 +4,9 @@ import type { GameState, Team, PlayerRole } from "../../types/game";
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { ClockIcon, ForwardIcon, ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 
-import timeA from '../../../public/Codenames BlueTeam - Spyfamily 1.png'
-import timeB from '../../../public/Codenames AnyBond RedTeam - SpyFamily 1.png'
-import imgBG from '../../../public/Codenames BG.png'
+import timeA from '../../../public/Codenames BlueTeam - Spyfamily 1.png';
+import timeB from '../../../public/Codenames AnyBond RedTeam - SpyFamily 1.png';
+import imgBG from '../../../public/Codenames BG.png';
 import { useNotification } from "../Modal/useNotification";
 
 interface GameScreenProps {
@@ -36,6 +36,9 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
 
   const [displayTime, setDisplayTime] = useState<number | null>(null);
   const localTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  
+  // Ref para evitar que o timeout de saída seja definido múltiplas vezes.
+  const exitTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!isConnected || !ws) {
@@ -47,20 +50,42 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
       sendMessage('JOIN_GAME', { userId, username });
       joinedWsRef.current = ws;
     }
+
     const handleMessage = (event: MessageEvent) => {
       try {
         const message = JSON.parse(event.data);
         switch (message.type) {
-          case 'GAME_STATE_UPDATE': setGameState(message.payload); break;
+          case 'GAME_STATE_UPDATE': {
+            const newState: GameState = message.payload;
+            setGameState(newState);
+
+            // ===================================================================
+            // ==                 ADIÇÃO IMPORTANTE PARA LIMPEZA                ==
+            // ===================================================================
+            // Se o jogo terminou e ainda não agendamos uma saída, agende uma.
+            if (newState.gamePhase === 'ended' && !exitTimeoutRef.current) {
+              notify(`O jogo terminou! Time ${newState.winner === 'A' ? 'Azul' : 'Vermelho'} venceu! Voltando ao dashboard em 10s...`, 'success');
+              
+              exitTimeoutRef.current = setTimeout(() => {
+                onExit(); // Chama a função para limpar o localStorage e voltar ao dashboard
+              }, 10000); // 10 segundos para o jogador ver o resultado
+            }
+            break;
+          }
           case 'LOBBY_CLOSED':
-            notify(message.payload.reason, "info");
-            setTimeout(() => { onExit(); }, 3000);
+            // Garante que não tenhamos dois timeouts conflitantes
+            if (!exitTimeoutRef.current) {
+              notify(message.payload.reason, "info");
+              exitTimeoutRef.current = setTimeout(() => { onExit(); }, 3000);
+            }
             break;
           case 'ERROR': {
             const errorMessage = message.payload.message;
             notify(`Erro: ${errorMessage}`, "error");
-            if (errorMessage.includes("jogo já começou")) {
-              setTimeout(() => { onExit(); }, 3000);
+            if (errorMessage.includes("jogo já começou") || errorMessage.includes("Lobby não existe")) {
+              if (!exitTimeoutRef.current) {
+                exitTimeoutRef.current = setTimeout(() => { onExit(); }, 3000);
+              }
             }
             break;
           }
@@ -72,10 +97,16 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
         console.error("Erro ao processar mensagem do servidor:", error);
       }
     };
+    
     ws.addEventListener('message', handleMessage);
+    
+    // Função de limpeza para o useEffect
     return () => {
       ws.removeEventListener('message', handleMessage);
-      joinedWsRef.current = null;
+      // Limpa qualquer timeout pendente se o componente for desmontado
+      if (exitTimeoutRef.current) {
+        clearTimeout(exitTimeoutRef.current);
+      }
     };
   }, [isConnected, ws, userId, username, sendMessage, onExit, notify]);
 
@@ -111,9 +142,17 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
   const handleLeaveTeam = () => sendMessage('LEAVE_TEAM', {});
 
   const handleExitLobby = () => {
+    // Limpa qualquer timeout de saída pendente antes de sair manualmente
+    if (exitTimeoutRef.current) {
+        clearTimeout(exitTimeoutRef.current);
+        exitTimeoutRef.current = null;
+    }
     sendMessage('EXIT_LOBBY', {});
     onExit();
   };
+
+  // O resto do componente (renderização) permanece exatamente o mesmo.
+  // ...
 
   if (!isConnected || !gameState) {
     return (
@@ -128,7 +167,6 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
     );
   }
 
-  // Constantes de estado
   const me = gameState.players.find(p => p.id === userId);
   const isSpymaster = me?.role === 'spymaster';
   const teamA = gameState.players.filter(p => p.team === 'A');

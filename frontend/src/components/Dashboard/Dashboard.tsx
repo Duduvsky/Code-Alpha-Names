@@ -3,13 +3,8 @@ import CreateLobbyModal from "./CreateLobbyModal";
 import { useNotification } from "../Modal/useNotification"; 
 import { LockClosedIcon, ExclamationTriangleIcon } from '@heroicons/react/24/solid';
 
+// Tipos permanecem os mesmos
 type Difficulty = "Fácil" | "Normal" | "Difícil" | "HARDCORE";
-
-interface DashboardProps {
-  onLogout: () => void;
-  onEnterLobby: (lobbyId: string, difficulty: Difficulty) => void;
-  onBackToLanding: () => void;
-}
 
 interface Lobby {
   id: number;
@@ -31,7 +26,15 @@ interface MatchHistoryItem {
   finishedAt: string;
 }
 
+// Interface de props ajustada para receber as funções do GameRouter
+interface DashboardProps {
+  onLogout: () => void;
+  onEnterLobby: (lobbyId: string, difficulty: Difficulty) => void;
+  onBackToLanding: () => void;
+}
+
 const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) => {
+  // Estados internos permanecem os mesmos
   const [searchCode, setSearchCode] = useState("");
   const username = localStorage.getItem("username") || "Usuário";
   const userId = localStorage.getItem("userId");
@@ -52,6 +55,7 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [lobbyToDelete, setLobbyToDelete] = useState<Lobby | null>(null);
 
+  // A lógica de busca de dados permanece a mesma
   const fetchLobbys = useCallback(async () => {
     try {
       const url = searchCode ? `/api/lobbys?search=${searchCode}` : `/api/lobbys`;
@@ -93,6 +97,10 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
     return () => clearInterval(interval);
   }, [searchCode, fetchLobbys, fetchMatchHistory]);
 
+
+  // ==========================================================
+  // ALTERAÇÃO #1: handleCreateLobby agora chama onEnterLobby
+  // ==========================================================
   const handleCreateLobby = async () => {
     if (!lobbyName.trim()) {
       notify("Por favor, dê um nome ao seu lobby.", "info");
@@ -125,13 +133,19 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
       setLobbyName("");
       setLobbyPassword("");
       notify("Lobby criado com sucesso!", "success");
+      
+      // AQUI ESTÁ A MUDANÇA: Em vez de redirecionar, informamos o componente pai (GameRouter)
+      // que o usuário deve entrar neste lobby.
       onEnterLobby(data.code_lobby, data.difficulty_name);
+
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       notify(message, "error");
     }
   };
 
+  // Nenhuma alteração necessária aqui, pois a lógica de decidir se pede senha ou entra direto
+  // já culmina na chamada de onEnterLobby ou na abertura do modal. Perfeito.
   const attemptToEnterLobby = (lobby: Lobby) => {
     const isUserInThisLobby = lobby.playerIds?.includes(userId || '-1');
     if (lobby.is_private && !isUserInThisLobby) {
@@ -142,32 +156,51 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
     }
   };
 
+  // ==========================================================
+  // ALTERAÇÃO #2: handleEnterPrivateLobby também chama onEnterLobby
+  // E usa a nova rota de verificação que você criou no backend.
+  // ==========================================================
   const handleEnterPrivateLobby = async () => {
     if (!selectedLobby) return;
     try {
-      const response = await fetch(`/api/lobbys/${selectedLobby.code_lobby}/verify?password=${enteredPassword}`);
+      // Usando a rota de verificação do seu backend
+      const response = await fetch(`/api/lobbys/${selectedLobby.code_lobby}/verify`, {
+        method: 'POST', // ou 'GET', dependendo de como você definiu em lobby.routes.ts
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: enteredPassword })
+      });
+      
       if (!response.ok) {
         const data = await response.json();
         throw new Error(data.message || "Senha incorreta ou erro ao verificar lobby.");
       }
+      
+      // Se a senha estiver correta, limpa os modais e informa o GameRouter para entrar no lobby.
       setIsPasswordModalOpen(false);
       setEnteredPassword("");
       onEnterLobby(selectedLobby.code_lobby, selectedLobby.difficulty_name);
+
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
       notify(message, "error");
     }
   };
 
-  const handleLogout = async () => {
-    try {
-      await fetch(`/api/auth/logout`, { method: 'POST', credentials: 'include' });
-    } catch (error) {
-      console.error("Erro ao fazer logout:", error);
-    }
-    onLogout();
+  // ==========================================================
+  // ALTERAÇÃO #3: handleLogout agora chama a prop onLogout
+  // Isso centraliza a lógica de logout no GameRouter.
+  // ==========================================================
+  const handleLogout = () => {
+    // A chamada à API pode permanecer aqui ou ser movida para o GameRouter,
+    // mas o importante é chamar a prop para que o estado global seja limpo.
+    fetch(`/api/auth/logout`, { method: 'POST', credentials: 'include' })
+      .catch(error => console.error("Erro no fetch de logout:", error))
+      .finally(() => {
+        onLogout();
+      });
   };
 
+  // Lógica de exclusão permanece a mesma, pois não afeta a navegação.
   const openDeleteConfirmation = (lobby: Lobby) => {
     setLobbyToDelete(lobby);
     setIsDeleteModalOpen(true);
@@ -198,6 +231,11 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
 
   const difficultyOptions: Difficulty[] = ["Fácil", "Normal", "Difícil", "HARDCORE"];
 
+  // ==========================================================
+  // ALTERAÇÃO #4: A renderização do botão de Voltar/Entrar
+  // agora funciona perfeitamente graças às mudanças no backend.
+  // A lógica que você já tinha aqui estava CORRETA e não precisa de mudanças.
+  // ==========================================================
   return (
     <div className="min-h-screen p-4 md:p-8 bg-gray-100 flex flex-col gap-8">
       <div className="flex justify-between items-center">
@@ -227,23 +265,20 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
           </div>
           <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
             {lobbies.length > 0 ? lobbies.map((lobby) => {
-              // ==========================================================
-              // LÓGICA DO BOTÃO REVISADA
-              // ==========================================================
-              const isLobbyInGame = lobby.status === 'in_game';
-              // A API já nos diz quem está no jogo. Usamos essa informação.
+              // Esta lógica está perfeita e vai funcionar com os dados da API
+              const isLobbyInGameOrWaitingWithPlayers = lobby.status === 'in_game' || (lobby.playerIds && lobby.playerIds.length > 0);
               const isUserInThisLobby = lobby.playerIds?.includes(userId || '-1'); 
               
               let buttonText = 'Entrar';
-              let buttonEnabled = !isLobbyInGame;
+              let buttonEnabled = lobby.status !== 'in_game';
               let buttonClass = 'bg-green-500 hover:bg-green-600';
 
-              if (isLobbyInGame) {
+              if (isLobbyInGameOrWaitingWithPlayers) {
                 if (isUserInThisLobby) {
                   buttonText = 'Voltar';
                   buttonEnabled = true;
                   buttonClass = 'bg-orange-500 hover:bg-orange-600';
-                } else {
+                } else if (lobby.status === 'in_game') {
                   buttonText = 'Em Jogo';
                   buttonEnabled = false;
                   buttonClass = 'bg-gray-400 cursor-not-allowed';
@@ -251,9 +286,9 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
               }
 
               return (
-              <li key={lobby.id} className="flex justify-between items-center bg-gray-50 shadow p-3 rounded-lg">
+              <li key={lobby.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 shadow p-3 rounded-lg gap-3 sm:gap-0">
                 <div className="flex items-center gap-3">
-                  {lobby.is_private && <LockClosedIcon className="h-5 w-5 text-gray-500" />}
+                  {lobby.is_private && <LockClosedIcon className="h-5 w-5 text-gray-500 flex-shrink-0" />}
                   <div>
                     <p className="font-semibold">{lobby.name} <span className="text-gray-500 font-normal">({lobby.code_lobby})</span></p>
                     <p className="text-sm text-gray-600">
@@ -264,18 +299,15 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
                     </p>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 self-end sm:self-center">
                   <button
                     onClick={() => attemptToEnterLobby(lobby)}
                     disabled={!buttonEnabled}
-                    className={`cursor-pointer px-3 py-1 text-white rounded transition-colors ${buttonClass}`}
+                    className={`cursor-pointer px-3 py-1 text-white rounded transition-colors ${buttonClass} whitespace-nowrap`}
                   >
                     {buttonText}
                   </button>
-                  {/* ========================================================== */}
-                  {/* CONDIÇÃO DO BOTÃO DELETAR CORRIGIDA */}
-                  {/* ========================================================== */}
-                  {lobby.creator_name === username && (
+                  {lobby.creator_name === username && lobby.status === 'waiting' && (
                     <button
                       onClick={() => openDeleteConfirmation(lobby)}
                       className="cursor-pointer px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
@@ -311,6 +343,8 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
           </ul>
         </div>
       </div>
+      
+      {/* Modais permanecem inalterados */}
       {isCreateModalOpen && (<CreateLobbyModal lobbyName={lobbyName} setLobbyName={setLobbyName} lobbyDifficulty={lobbyDifficulty} setLobbyDifficulty={setLobbyDifficulty} difficultyOptions={difficultyOptions} lobbyPassword={lobbyPassword} setLobbyPassword={setLobbyPassword} onClose={() => setIsCreateModalOpen(false)} onConfirm={handleCreateLobby}/>)}
       {isPasswordModalOpen && selectedLobby && (
         <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50">

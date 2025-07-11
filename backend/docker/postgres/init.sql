@@ -3,6 +3,7 @@ CREATE TABLE IF NOT EXISTS users (
   username TEXT NOT NULL UNIQUE,
   email TEXT UNIQUE,
   password TEXT NOT NULL,
+  current_lobby_code VARCHAR(10) NULL;
   created_at TIMESTAMP DEFAULT NOW()
 );
 
