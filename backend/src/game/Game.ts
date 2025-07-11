@@ -343,7 +343,7 @@ export class Game {
 
     private async startGame() {
         if (this.gamePhase !== 'waiting' || this.players.size < 4 || !this.areTeamsValid()) {
-            this.broadcastMessage({ type: 'ERROR', payload: { message: 'Condições para iniciar o jogo não foram atendidas.' } });
+            this.broadcastMessage({ type: 'ERROR', payload: { message: 'Cada time deve ter pelo menos um espião mestre e um agente para iniciar a partida.' } });
             return;
         }
         await updateLobbyStatus(this.lobbyId, 'in_game');
