@@ -4,9 +4,9 @@ import type { GameState, Team, PlayerRole } from "../../types/game";
 import { useWebSocket } from '../../hooks/useWebSocket';
 import { ClockIcon, ForwardIcon, ArrowUturnLeftIcon } from '@heroicons/react/24/outline';
 
-import timeA from '../../../public/Codenames BlueTeam - Spyfamily 1.png';
-import timeB from '../../../public/Codenames AnyBond RedTeam - SpyFamily 1.png';
-import imgBG from '../../../public/Codenames BG.png';
+import timeA from '../../../public/Codenames BlueTeam - Spyfamily 1.png'
+import timeB from '../../../public/Codenames AnyBond RedTeam - SpyFamily 1.png'
+import imgBG from '../../../public/Codenames BG.png'
 import { useNotification } from "../Modal/useNotification";
 
 interface GameScreenProps {
@@ -36,16 +36,18 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
 
   const [displayTime, setDisplayTime] = useState<number | null>(null);
   const localTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  
-  const exitTimeoutRef = useRef<number | null>(null);
-
-  const logRef = useRef<HTMLDivElement>(null);
+  const logEndRefDesktop = useRef<HTMLDivElement>(null);
+  const logEndRefMobile = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (logRef.current) {
-      logRef.current.scrollTop = logRef.current.scrollHeight;
+    if (window.innerWidth >= 768) {
+      console.log("Rolando log do desktop");
+      logEndRefDesktop.current?.scrollIntoView({ behavior: "smooth" });
+    } else {
+      console.log("Rolando log do mobile");
+      logEndRefMobile.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [gameState?.log]);
+  }, [gameState?.log?.length]);
 
   useEffect(() => {
     if (!isConnected || !ws) {
@@ -57,42 +59,20 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
       sendMessage('JOIN_GAME', { userId, username });
       joinedWsRef.current = ws;
     }
-
     const handleMessage = (event: MessageEvent) => {
       try {
         const message = JSON.parse(event.data);
         switch (message.type) {
-          case 'GAME_STATE_UPDATE': {
-            const newState: GameState = message.payload;
-            setGameState(newState);
-
-            // ===================================================================
-            // ==                 ADIÇÃO IMPORTANTE PARA LIMPEZA                ==
-            // ===================================================================
-            // Se o jogo terminou e ainda não agendamos uma saída, agende uma.
-            if (newState.gamePhase === 'ended' && !exitTimeoutRef.current) {
-              notify(`O jogo terminou! Time ${newState.winner === 'A' ? 'Azul' : 'Vermelho'} venceu! Voltando ao dashboard em 10s...`, 'success');
-              
-              exitTimeoutRef.current = setTimeout(() => {
-                onExit(); // Chama a função para limpar o localStorage e voltar ao dashboard
-              }, 10000); // 10 segundos para o jogador ver o resultado
-            }
-            break;
-          }
+          case 'GAME_STATE_UPDATE': setGameState(message.payload); break;
           case 'LOBBY_CLOSED':
-            // Garante que não tenhamos dois timeouts conflitantes
-            if (!exitTimeoutRef.current) {
-              notify(message.payload.reason, "info");
-              exitTimeoutRef.current = setTimeout(() => { onExit(); }, 3000);
-            }
+            notify(message.payload.reason, "info");
+            setTimeout(() => { onExit(); }, 3000);
             break;
           case 'ERROR': {
             const errorMessage = message.payload.message;
             notify(`Erro: ${errorMessage}`, "error");
-            if (errorMessage.includes("jogo já começou") || errorMessage.includes("Lobby não existe")) {
-              if (!exitTimeoutRef.current) {
-                exitTimeoutRef.current = setTimeout(() => { onExit(); }, 3000);
-              }
+            if (errorMessage.includes("jogo já começou")) {
+              setTimeout(() => { onExit(); }, 3000);
             }
             break;
           }
@@ -104,16 +84,10 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
         console.error("Erro ao processar mensagem do servidor:", error);
       }
     };
-    
     ws.addEventListener('message', handleMessage);
-    
-    // Função de limpeza para o useEffect
     return () => {
       ws.removeEventListener('message', handleMessage);
-      // Limpa qualquer timeout pendente se o componente for desmontado
-      if (exitTimeoutRef.current) {
-        clearTimeout(exitTimeoutRef.current);
-      }
+      joinedWsRef.current = null;
     };
   }, [isConnected, ws, userId, username, sendMessage, onExit, notify]);
 
@@ -149,17 +123,9 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
   const handleLeaveTeam = () => sendMessage('LEAVE_TEAM', {});
 
   const handleExitLobby = () => {
-    // Limpa qualquer timeout de saída pendente antes de sair manualmente
-    if (exitTimeoutRef.current) {
-        clearTimeout(exitTimeoutRef.current);
-        exitTimeoutRef.current = null;
-    }
     sendMessage('EXIT_LOBBY', {});
     onExit();
   };
-
-  // O resto do componente (renderização) permanece exatamente o mesmo.
-  // ...
 
   if (!isConnected || !gameState) {
     return (
@@ -174,6 +140,7 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
     );
   }
 
+  // Constantes de estado
   const me = gameState.players.find(p => p.id === userId);
   const isSpymaster = me?.role === 'spymaster';
   const teamA = gameState.players.filter(p => p.team === 'A');
@@ -213,7 +180,7 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
             <button onClick={handleStartGame} className="cursor-pointer px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">Iniciar</button>
           )}
           
-          <button onClick={handleExitLobby} className="cursor-pointer px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">Sair do Lobby</button>
+          <button onClick={handleExitLobby} className="cursor-pointer px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600">Sair do Jogo</button>
         </div>
       </div>
       <div className="flex flex-col md:flex-row flex-1 min-h-0 gap-4">
@@ -288,26 +255,60 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
         <div className="hidden md:flex flex-col w-1/5 min-h-0 gap-4">
           <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded shadow p-2 flex-1 flex flex-col min-h-0">
             <div className="font-bold mb-2">Log do Jogo</div>
-            <div className="flex-1 bg-gray-900 rounded p-2 overflow-y-auto text-sm space-y-1">{[...(gameState.log || [])].reverse().map((entry, i) => <div key={i}>{entry}</div>)}</div>
+            <div style={{ height: "300px" }} className="bg-gray-900 rounded p-2 overflow-y-auto text-sm space-y-1">
+              {(gameState.log || []).map((entry, i) => (
+                <div key={i}>{entry}</div>
+              ))}
+              <div ref={logEndRefDesktop} />
+            </div>
           </div>
           <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded shadow p-2 flex flex-col min-h-0 h-[450px]">
             <div className="font-bold mb-2">Chat</div>
-            <div className="flex-1 overflow-hidden"><Chat lobbyId={lobbyId} userId={userId} username={username} /></div>
+            <div className="flex-1 overflow-hidden">
+              <Chat lobbyId={lobbyId} userId={userId} username={username} />
+            </div>
           </div>
         </div>
+
       </div>
       <div className="md:hidden flex flex-col mt-4" style={{ height: '35vh' }}>
         <div className="flex border-b border-gray-700">
-          <button className={`cursor-pointer flex-1 p-2 text-sm font-medium ${activeMobileTab === "log" ? "text-blue-400 border-b-2 border-blue-400" : "text-gray-400"}`} onClick={() => setActiveMobileTab("log")}>Log</button>
-          <button className={`cursor-pointer flex-1 p-2 text-sm font-medium ${activeMobileTab === "chat" ? "text-blue-400 border-b-2 border-blue-400" : "text-gray-400"}`} onClick={() => setActiveMobileTab("chat")}>Chat</button>
+          <button
+            className={`cursor-pointer flex-1 p-2 text-sm font-medium ${
+              activeMobileTab === "log"
+                ? "text-blue-400 border-b-2 border-blue-400"
+                : "text-gray-400"
+            }`}
+            onClick={() => setActiveMobileTab("log")}
+          >
+            Log
+          </button>
+          <button
+            className={`cursor-pointer flex-1 p-2 text-sm font-medium ${
+              activeMobileTab === "chat"
+                ? "text-blue-400 border-b-2 border-blue-400"
+                : "text-gray-400"
+            }`}
+            onClick={() => setActiveMobileTab("chat")}
+          >
+            Chat
+          </button>
         </div>
         <div className="flex-1 bg-gray-800 rounded-b-lg shadow-sm overflow-hidden">
-          <div ref={logRef} className="flex-1 bg-gray-900 rounded p-2 overflow-y-auto text-sm space-y-1">
-            {(gameState.log || []).map((entry, i) => <div key={i}>{entry}</div>)}
+          <div
+            className={`h-full ${activeMobileTab !== "log" ? "hidden" : ""} overflow-y-auto text-xs p-2 space-y-1`}
+          >
+            {(gameState.log || []).map((entry, i) => (
+              <div key={i}>{entry}</div>
+            ))}
+            <div ref={logEndRefMobile} />
           </div>
-          <div className={`h-full ${activeMobileTab !== "chat" ? "hidden" : ""}`}><Chat lobbyId={lobbyId} userId={userId} username={username} /></div>
+          <div className={`h-full ${activeMobileTab !== "chat" ? "hidden" : ""}`}>
+            <Chat lobbyId={lobbyId} userId={userId} username={username} />
+          </div>
         </div>
       </div>
+
     </div>
   );
 };
