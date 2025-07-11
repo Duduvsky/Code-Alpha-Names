@@ -40,6 +40,12 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
   const logEndRefMobile = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
+    if (logEndRefDesktop.current) {
+      logEndRefDesktop.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [gameState?.log]);
+
+  useEffect(() => {
     if (!isConnected || !ws) {
       setGameState(null);
       return;
@@ -293,7 +299,7 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
         <div className="hidden md:flex flex-col w-1/5 min-h-0 gap-4">
           <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded shadow p-2 flex-1 flex flex-col min-h-0">
             <div className="font-bold mb-2">Log do Jogo</div>
-            <div className="flex-1 min-h-0 bg-gray-900 rounded p-2 overflow-y-auto text-sm space-y-1">
+            <div className="flex-1 min-h-0 max-h-[170px] bg-gray-900 rounded p-2 overflow-y-auto text-sm space-y-1">
               {(gameState.log || []).map((entry, i) => (
                 <div key={i}>{entry}</div>
               ))}
@@ -307,7 +313,6 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
             </div>
           </div>
         </div>
-
       </div>
       <div className="md:hidden flex flex-col mt-4" style={{ height: '35vh' }}>
         <div className="flex border-b border-gray-700">
