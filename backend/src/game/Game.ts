@@ -112,46 +112,69 @@ export class Game {
         this.fetchLobbyDbId();
     }
     
+    // <<< MUDANÇA PRINCIPAL AQUI >>>
     private checkEssentialRoles() {
         if (this.gamePhase === 'waiting' || this.gamePhase === 'ended') {
             return;
         }
-
+    
         const teams: Team[] = ['A', 'B'];
-
+    
         for (const team of teams) {
             const teamPlayers = Array.from(this.players.values()).filter(p => p.team === team);
-            const hasConnectedSpymaster = teamPlayers.some(p => p.role === 'spymaster' && p.ws !== null);
             const teamName = team === 'A' ? 'Azul' : 'Vermelho';
-
+    
+            // Verifica a presença de cada role essencial conectada.
+            const hasConnectedSpymaster = teamPlayers.some(p => p.role === 'spymaster' && p.ws !== null);
+            const hasConnectedOperatives = teamPlayers.some(p => p.role === 'operative' && p.ws !== null);
+    
+            let missingRoleMessage = '';
             if (!hasConnectedSpymaster) {
+                missingRoleMessage = `O Espião Mestre do Time ${teamName} desconectou!`;
+            } else if (!hasConnectedOperatives) {
+                missingRoleMessage = `Todos os Agentes do Time ${teamName} desconectaram!`;
+            }
+    
+            // CONDIÇÃO DE PERIGO: Uma role essencial está faltando.
+            if (missingRoleMessage) {
+                // Se já não houver um timer rodando para este time, inicie um.
                 if (!this.roleDisconnectTimers.has(team)) {
-                    console.log(`[Game] Spymaster do Time ${teamName} desconectado. Iniciando timer de 30s.`);
+                    console.log(`[Game] Role essencial do Time ${teamName} desconectada. Iniciando timer de 30s.`);
+                    
+                    const fullMessage = `${missingRoleMessage} A sala será encerrada em 30 segundos se a vaga não for preenchida.`;
+                    
                     this.broadcastMessage({
                         type: 'ESSENTIAL_ROLE_DISCONNECTED',
-                        payload: { message: `O Espião Mestre do Time ${teamName} desconectou! O jogo será encerrado em 30 segundos se a vaga não for preenchida.` }
+                        payload: { message: fullMessage }
                     });
-                    this.log.push(`🚨 O Espião Mestre do Time ${teamName} desconectou!`);
+    
+                    this.log.push(`🚨 ${missingRoleMessage}`);
                     this.broadcastState();
-
+    
                     const timer = setTimeout(() => {
                         console.log(`[Game] Timer para o Time ${teamName} expirou. Encerrando jogo.`);
-                        this.log.push(`❌ O Espião Mestre do Time ${teamName} não retornou. Fim de jogo!`);
+                        this.log.push(`❌ O Time ${teamName} não se recuperou a tempo. Fim de jogo!`);
                         const winningTeam = team === 'A' ? 'B' : 'A';
                         this.endGame(winningTeam);
-                    }, 30000);
-
+                    }, 30000); // 30 segundos
+    
                     this.roleDisconnectTimers.set(team, timer);
                 }
-            } else {
+            }
+            // CONDIÇÃO DE ALÍVIO: Todas as roles essenciais estão presentes.
+            else {
+                // Se havia um timer rodando para este time, cancele-o.
                 if (this.roleDisconnectTimers.has(team)) {
-                    console.log(`[Game] Spymaster do Time ${teamName} reconectado/presente. Cancelando timer.`);
+                    console.log(`[Game] Roles do Time ${teamName} preenchidas. Cancelando timer.`);
+                    
                     this.broadcastMessage({
                         type: 'ESSENTIAL_ROLE_RECONNECTED',
-                        payload: { message: `O Espião Mestre do Time ${teamName} está de volta! O jogo continua.` }
+                        payload: { message: `O Time ${teamName} está completo novamente! O jogo continua.` }
                     });
-                    this.log.push(`✅ O Espião Mestre do Time ${teamName} está na sala.`);
+    
+                    this.log.push(`✅ O Time ${teamName} está completo. O jogo continua!`);
                     this.broadcastState();
+    
                     clearTimeout(this.roleDisconnectTimers.get(team)!);
                     this.roleDisconnectTimers.delete(team);
                 }
@@ -194,10 +217,9 @@ export class Game {
             
             this.checkEssentialRoles();
             
-            // <<< MUDANÇA #1 >>> A lógica de encerrar a sala só acontece se o jogo AINDA NÃO COMEÇOU.
             if (Number(player.id) === this.creatorId && this.gamePhase === 'waiting') {
                 this.log.push(`🚨 O criador da sala desconectou ANTES do jogo começar! A sala será fechada em 30 segundos se ele não retornar.`);
-                this.broadcastMessage({ type: 'CREATOR_DISCONNECTED_WARNING', payload: { message: 'O criador desconectou! A sala será fechada em 30s se ele não retornar.' } });
+                this.broadcastMessage({ type: 'CREATOR_DISCONNECTED_WARNING', payload: { message: 'O criador desconectou ANTES do jogo começar! A sala será fechada em 30s se ele não retornar.' } });
                 this.clearTurnTimer();
                 this.creatorDisconnectTimeout = setTimeout(() => {
                     this.log.push(`🚨 O criador não retornou a tempo. O jogo foi encerrado.`);
@@ -324,7 +346,6 @@ export class Game {
             this.broadcastMessage({ type: 'ERROR', payload: { message: 'Condições para iniciar o jogo não foram atendidas.' } });
             return;
         }
-
         await updateLobbyStatus(this.lobbyId, 'in_game');
         this.log = ["🚀 Jogo iniciado!"];
         const totalCards = 25;
@@ -387,7 +408,6 @@ export class Game {
             return;
         }
         if (!player.team) return;
-
         const oldTeamName = player.team === 'A' ? "Azul" : "Vermelho";
         this.log.push(`ℹ️ ${player.username} deixou o Time ${oldTeamName}.`);
         player.team = undefined;
@@ -396,6 +416,9 @@ export class Game {
     }
 
     private async exitLobby(player: Player) {
+        player.ws = null;
+        this.checkEssentialRoles();
+        
         this.players.delete(player.id);
         this.log.push(`🚪 ${player.username} saiu da sala.`);
         console.log(`[Game] Jogador ${player.username} saiu permanentemente do lobby ${this.lobbyId}.`);
@@ -406,7 +429,6 @@ export class Game {
             console.error('[Game] Falha ao limpar current_lobby_code na saída:', err);
         }
 
-        // <<< MUDANÇA #2 >>> A lógica de encerrar a sala só acontece se o jogo AINDA NÃO COMEÇOU.
         if (Number(player.id) === this.creatorId && this.gamePhase === 'waiting') {
             this.log.push(`🚨 O criador da sala saiu ANTES do jogo começar. O jogo foi encerrado.`);
             const otherPlayerIds = Array.from(this.players.keys()).map(Number);
@@ -419,16 +441,12 @@ export class Game {
             this.players.clear();
             updateLobbyStatus(this.lobbyId, 'finished');
         } else {
-            // Se o criador sair durante o jogo, ele é tratado como um jogador normal.
-            // Apenas atualizamos o estado para que todos vejam que ele saiu.
             this.broadcastState();
         }
-        player.ws?.close(1000, 'Left the lobby');
     }
 
     private giveClue(player: Player, clue: string, count: number) {
         if (this.gamePhase !== 'giving_clue' || player.role !== 'spymaster' || player.team !== this.currentTurn) return;
-        
         this.turnTimeRemaining = null;
         this.currentClue = { word: clue, count };
         this.guessesRemaining = count + 1;
@@ -442,11 +460,9 @@ export class Game {
         if (this.gamePhase !== 'guessing' || player.role !== 'operative' || player.team !== this.currentTurn) return;
         const card = this.board.find(c => c.word === word && !c.revealed);
         if (!card) return;
-
         card.revealed = true;
         this.log.push(`${player.username} chutou: "${word}".`);
         let shouldEndTurn = false;
-
         switch(card.color) {
             case 'assassin':
                 this.log.push(`💣 Era o Assassino! Fim de jogo.`);
@@ -473,12 +489,9 @@ export class Game {
                 }
                 break;
         }
-
         this.guessesRemaining--;
-
         if (this.scores.A === 0) { this.endGame('A'); return; }
         if (this.scores.B === 0) { this.endGame('B'); return; }
-
         if (shouldEndTurn || this.guessesRemaining <= 0) {
             this.endTurn();
         } else {
@@ -511,7 +524,6 @@ export class Game {
         
         this.roleDisconnectTimers.forEach(timer => clearTimeout(timer));
         this.roleDisconnectTimers.clear();
-
         this.clearTurnTimer();
         this.winner = winner;
         this.gamePhase = 'ended';
@@ -528,14 +540,12 @@ export class Game {
                 console.error('[Game] Falha ao limpar current_lobby_code no fim do jogo:', err);
             }
         }
-
         if (this.lobbyIdDb) {
             const playersArray = Array.from(this.players.values());
             await saveMatchHistory(this.lobbyIdDb, winner, playersArray);
         } else {
             await updateLobbyStatus(this.lobbyId, 'finished');
         }
-
         this.broadcastState();
     }
 
