@@ -90,8 +90,6 @@ const GameRouter = () => {
                 <Dashboard
                     onEnterLobby={handleEnterLobby}
                     onLogout={handleLogout}
-                    // onBackToLanding pode ser mantido se tiver outra função
-                    onBackToLanding={() => console.log("Voltando para a Landing Page")}
                 />
             )}
         </WebSocketProvider>

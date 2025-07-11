@@ -30,10 +30,9 @@ interface MatchHistoryItem {
 interface DashboardProps {
   onLogout: () => void;
   onEnterLobby: (lobbyId: string, difficulty: Difficulty) => void;
-  onBackToLanding: () => void;
 }
 
-const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) => {
+const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
   // Estados internos permanecem os mesmos
   const [searchCode, setSearchCode] = useState("");
   const username = localStorage.getItem("username") || "Usuário";
@@ -236,140 +235,199 @@ const Dashboard = ({ onLogout, onEnterLobby, onBackToLanding }: DashboardProps) 
   // agora funciona perfeitamente graças às mudanças no backend.
   // A lógica que você já tinha aqui estava CORRETA e não precisa de mudanças.
   // ==========================================================
+
+
   return (
-    <div className="min-h-screen p-4 md:p-8 bg-gray-100 flex flex-col gap-8">
-      <div className="flex justify-between items-center">
-        <h1 className="text-xl sm:text-3xl font-bold">Bem-vindo, {username}!</h1>
-        <div className="flex gap-2">
-          <button onClick={onBackToLanding} className="cursor-pointer px-4 py-2 bg-gray-300 text-gray-800 rounded-lg hover:bg-gray-400 transition">
-            Voltar ao Início
-          </button>
-          <button onClick={handleLogout} className="cursor-pointer px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
-            Sair
-          </button>
-        </div>
+    <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8 relative overflow-hidden">
+      <div className="absolute inset-0 -z-10">
+        <div className="w-full h-full bg-[url('/Codenames BG.png')] bg-cover bg-center opacity-20" />
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-2xl font-bold">Lobbys</h2>
-            <button onClick={() => setIsCreateModalOpen(true)} className="cursor-pointer px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition">
-              Criar Lobby
-            </button>
-          </div>
-          <div className="mb-6 flex flex-wrap gap-2">
-            <input type="text" placeholder="Buscar por código ou nome" value={searchCode} onChange={(e) => setSearchCode(e.target.value)} className="flex-1 p-2 border border-gray-300 rounded-lg min-w-[150px]"/>
-            <button onClick={() => setSearchCode('')} className="cursor-pointer px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400 transition">
-              Limpar
-            </button>
-          </div>
-          <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
-            {lobbies.length > 0 ? lobbies.map((lobby) => {
-              // Esta lógica está perfeita e vai funcionar com os dados da API
-              const isLobbyInGameOrWaitingWithPlayers = lobby.status === 'in_game' || (lobby.playerIds && lobby.playerIds.length > 0);
-              const isUserInThisLobby = lobby.playerIds?.includes(userId || '-1'); 
-              
-              let buttonText = 'Entrar';
-              let buttonEnabled = lobby.status !== 'in_game';
-              let buttonClass = 'bg-green-500 hover:bg-green-600';
 
-              if (isLobbyInGameOrWaitingWithPlayers) {
-                if (isUserInThisLobby) {
-                  buttonText = 'Voltar';
-                  buttonEnabled = true;
-                  buttonClass = 'bg-orange-500 hover:bg-orange-600';
-                } else if (lobby.status === 'in_game') {
-                  buttonText = 'Em Jogo';
-                  buttonEnabled = false;
-                  buttonClass = 'bg-gray-400 cursor-not-allowed';
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold">Bem-vindo, {username}!</h1>
+          <div className="flex gap-2">
+           <button onClick={handleLogout} className="cursor-pointer px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition">
+             Sair
+           </button>
+         </div>
+      </div>
+
+      <div className="flex flex-col lg:flex-row gap-8 min-h-[70vh]">
+        {/* Coluna da esquerda: Lobbys + Histórico */}
+        <div className="flex flex-col gap-6 w-full lg:w-1/2">
+          {/* Lobbys */}
+          <div className="bg-gray-800 bg-opacity-70 border border-gray-700 p-6 rounded-lg shadow flex flex-col h-[50%] min-h-[300px]">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold">Lobbys</h2>
+              <button onClick={() => setIsCreateModalOpen(true)} className="cursor-pointer px-4 py-2 bg-yellow-500 text-white rounded hover:bg-yellow-600 transition">Criar Lobby</button>
+            </div>
+            <div className="mb-4 flex gap-2">
+              <input
+                type="text"
+                placeholder="Buscar por código ou nome"
+                value={searchCode}
+                onChange={(e) => setSearchCode(e.target.value)}
+                className="flex-1 p-2 rounded bg-gray-700 text-white border border-gray-600 placeholder-gray-400"
+              />
+              <button onClick={() => setSearchCode('')} className="cursor-pointer px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">Limpar</button>
+            </div>
+            <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+              {lobbies.length > 0 ? lobbies.map((lobby) => {
+                const isLobbyInGameOrWaitingWithPlayers = lobby.status === 'in_game' || (lobby.playerIds && lobby.playerIds.length > 0);
+                const isUserInThisLobby = lobby.playerIds?.includes(userId || '-1');
+                let buttonText = 'Entrar';
+                let buttonEnabled = lobby.status !== 'in_game';
+                let buttonClass = 'bg-green-500 hover:bg-green-600';
+
+                if (isLobbyInGameOrWaitingWithPlayers) {
+                  if (isUserInThisLobby) {
+                    buttonText = 'Voltar';
+                    buttonEnabled = true;
+                    buttonClass = 'bg-orange-500 hover:bg-orange-600';
+                  } else if (lobby.status === 'in_game') {
+                    buttonText = 'Em Jogo';
+                    buttonEnabled = false;
+                    buttonClass = 'bg-gray-500';
+                  }
                 }
-              }
 
-              return (
-              <li key={lobby.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-gray-50 shadow p-3 rounded-lg gap-3 sm:gap-0">
-                <div className="flex items-center gap-3">
-                  {lobby.is_private && <LockClosedIcon className="h-5 w-5 text-gray-500 flex-shrink-0" />}
-                  <div>
-                    <p className="font-semibold">{lobby.name} <span className="text-gray-500 font-normal">({lobby.code_lobby})</span></p>
-                    <p className="text-sm text-gray-600">
-                      Criador: {lobby.creator_name} | Status:
-                      <span className={lobby.status === 'in_game' ? 'text-red-500 font-semibold' : 'text-green-600 font-semibold'}>
-                        {lobby.status === 'in_game' ? ' Em Jogo' : ' Aguardando'}
-                      </span>
-                    </p>
+                return (
+                  <div key={lobby.id} className="bg-gray-900 p-3 rounded border border-gray-700 flex flex-col md:flex-row md:justify-between md:items-center gap-2">
+                    <div className="flex items-center gap-2">
+                      {lobby.is_private && <LockClosedIcon className="h-5 w-5 text-gray-400" />}
+                      <div>
+                        <div className="font-semibold">{lobby.name} <span className="text-gray-400">({lobby.code_lobby})</span></div>
+                        <div className="text-sm text-gray-400">Criador: {lobby.creator_name} | Status: <span className={lobby.status === 'in_game' ? 'text-red-400' : 'text-green-400'}>{lobby.status === 'in_game' ? 'Em Jogo' : 'Aguardando'}</span></div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => attemptToEnterLobby(lobby)}
+                        disabled={!buttonEnabled}
+                        className={`cursor-pointer px-3 py-1 text-sm text-white rounded ${buttonClass} disabled:opacity-60 disabled:cursor-not-allowed`}
+                      >
+                        {buttonText}
+                      </button>
+                      {lobby.creator_name === username && lobby.status === 'waiting' && (
+                        <button
+                          onClick={() => openDeleteConfirmation(lobby)}
+                          className="cursor-pointer px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+                        >
+                          Deletar
+                        </button>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="flex gap-2 self-end sm:self-center">
-                  <button
-                    onClick={() => attemptToEnterLobby(lobby)}
-                    disabled={!buttonEnabled}
-                    className={`cursor-pointer px-3 py-1 text-white rounded transition-colors ${buttonClass} whitespace-nowrap`}
-                  >
-                    {buttonText}
-                  </button>
-                  {lobby.creator_name === username && lobby.status === 'waiting' && (
-                    <button
-                      onClick={() => openDeleteConfirmation(lobby)}
-                      className="cursor-pointer px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600"
-                    >
-                      Deletar
-                    </button>
-                  )}
-                </div>
-              </li>
-              );
-            }) : <p className="text-center text-gray-500">Nenhum lobby encontrado.</p>}
-          </ul>
-        </div>
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h2 className="text-2xl font-bold mb-4">Histórico de Partidas</h2>
-          <ul className="space-y-3 max-h-96 overflow-y-auto pr-2">
+                );
+              }) : (
+                <p className="text-center text-gray-400">Nenhum lobby encontrado.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Histórico */}
+          <div className="bg-gray-800 bg-opacity-70 border border-gray-700 p-6 rounded-lg shadow flex-1 overflow-y-auto">
+            <h2 className="text-xl font-bold mb-4">Histórico de Partidas</h2>
             {matchHistory.length > 0 ? (
-              matchHistory.map((match) => (
-                <li key={match.lobbyId} className={`p-3 border-l-4 rounded-lg flex justify-between items-center transition-colors ${match.userWon ? 'bg-green-50 border-green-500 hover:bg-green-100' : 'bg-red-50 border-red-500 hover:bg-red-100'}`}>
-                  <div>
-                    <p className="font-bold text-base">{match.lobbyName}</p>
-                    <p className="text-sm">
-                      <span className={`font-semibold ${match.userWon ? 'text-green-700' : 'text-red-700'}`}>{match.userWon ? 'Vitória' : 'Derrota'}</span>
-                      <span className="text-gray-500"> • Modo: {match.difficulty}</span>
-                    </p>
-                  </div>
-                  <span className="text-sm text-gray-600 font-medium">
-                    {new Date(match.finishedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                  </span>
-                </li>
-              ))
-            ) : (<p className="text-gray-500 text-center py-4">Nenhuma partida registrada ainda.</p>)}
-          </ul>
+              <ul className="space-y-3">
+                {matchHistory.map((match) => (
+                  <li key={match.lobbyId} className={`p-3 rounded border-l-4 ${match.userWon ? 'bg-green-900 border-green-500' : 'bg-red-900 border-red-500'}`}>
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="font-semibold">{match.lobbyName}</p>
+                        <p className="text-sm text-gray-300">
+                          <span className="font-medium">{match.userWon ? 'Vitória' : 'Derrota'}</span> • Modo: {match.difficulty}
+                        </p>
+                      </div>
+                      <span className="text-sm text-gray-400">
+                        {new Date(match.finishedAt).toLocaleDateString('pt-BR')}
+                      </span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-center text-gray-400">Nenhuma partida registrada ainda.</p>
+            )}
+          </div>
+        </div>
+
+        {/* Coluna da direita: Regras */}
+        <div className="w-full lg:w-1/2 bg-gray-800 bg-opacity-80 text-white p-6 rounded-lg shadow border border-gray-700">
+          <h2 className="text-2xl font-bold mb-4 text-center">Como funciona o jogo?</h2>
+          <p className="text-sm text-gray-300 mb-6 leading-relaxed">
+            O jogo é dividido entre dois times: Azul e Vermelho. Um jogador de cada time assume o papel de <strong>Espião Mestre</strong> e os demais são <strong>Agentes</strong>.
+            O objetivo é encontrar todas as palavras do seu time antes do adversário, evitando a carta do <strong>assassino</strong>, que elimina o time instantaneamente.
+            A cada rodada, o espião dá uma dica e um número, e os agentes devem tentar adivinhar quais palavras se encaixam.
+          </p>
+
+          <h2 className="text-xl font-bold mb-4 text-center">Modos de Jogo</h2>
+          <div className="grid sm:grid-cols-2 gap-4 text-sm leading-relaxed">
+            <div className="bg-gray-900 p-4 rounded border border-gray-700">
+              <h3 className="font-bold text-blue-400 mb-2">Modo Fácil</h3>
+              <ul className="list-disc list-inside text-gray-300">
+                <li>Espião: 5 minutos</li>
+                <li>Agentes: 5 minutos</li>
+                <li>Cartas: 9 Azuis, 8 Vermelhas, 1 Preta (assassino), 7 Neutras</li>
+              </ul>
+            </div>
+            <div className="bg-gray-900 p-4 rounded border border-gray-700">
+              <h3 className="font-bold text-yellow-400 mb-2">Modo Normal</h3>
+              <ul className="list-disc list-inside text-gray-300">
+                <li>Espião: 3 minutos</li>
+                <li>Agentes: 3 minutos</li>
+                <li>Cartas: 9 Azuis, 8 Vermelhas, 1 Preta, 7 Neutras</li>
+              </ul>
+            </div>
+            <div className="bg-gray-900 p-4 rounded border border-gray-700">
+              <h3 className="font-bold text-red-400 mb-2">Modo Difícil</h3>
+              <ul className="list-disc list-inside text-gray-300">
+                <li>Espião: 1 minuto</li>
+                <li>Agentes: 1 minuto</li>
+                <li>Cartas: 8 Azuis, 7 Vermelhas, 4 Pretas, 4 Neutras</li>
+              </ul>
+            </div>
+            <div className="bg-gray-900 p-4 rounded border border-gray-700">
+              <h3 className="font-bold text-pink-400 mb-2">Modo HARDCORE</h3>
+              <ul className="list-disc list-inside text-gray-300">
+                <li>Espião: 30 segundos</li>
+                <li>Agentes: 30 segundos</li>
+                <li>Cartas: 9 Azuis, 8 Vermelhas, todas as demais são Pretas</li>
+              </ul>
+            </div>
+          </div>
+
         </div>
       </div>
-      
-      {/* Modais permanecem inalterados */}
-      {isCreateModalOpen && (<CreateLobbyModal lobbyName={lobbyName} setLobbyName={setLobbyName} lobbyDifficulty={lobbyDifficulty} setLobbyDifficulty={setLobbyDifficulty} difficultyOptions={difficultyOptions} lobbyPassword={lobbyPassword} setLobbyPassword={setLobbyPassword} onClose={() => setIsCreateModalOpen(false)} onConfirm={handleCreateLobby}/>)}
+
+      {/* Modais (inalterados) */}
+      {isCreateModalOpen && (<CreateLobbyModal {...{ lobbyName, setLobbyName, lobbyDifficulty, setLobbyDifficulty, difficultyOptions, lobbyPassword, setLobbyPassword, onClose: () => setIsCreateModalOpen(false), onConfirm: handleCreateLobby }} />)}
+
       {isPasswordModalOpen && selectedLobby && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-black">
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 text-white p-6 rounded-lg shadow-xl w-full max-w-sm">
             <h3 className="text-xl font-bold mb-4">Entrar em Sala Privada</h3>
-            <p className="mb-4">O lobby "{selectedLobby.name}" é protegido por senha.</p>
-            <input type="password" placeholder="Digite a senha" value={enteredPassword} onChange={(e) => setEnteredPassword(e.target.value)} className="w-full p-2 border border-gray-300 rounded-lg mb-4" autoFocus />
+            <p className="mb-4">O lobby <strong>{selectedLobby.name}</strong> é protegido por senha.</p>
+            <input type="password" placeholder="Digite a senha" value={enteredPassword} onChange={(e) => setEnteredPassword(e.target.value)} className="w-full p-2 bg-gray-800 border border-gray-600 rounded text-white mb-4" autoFocus />
             <div className="flex justify-end gap-4">
-              <button onClick={() => setIsPasswordModalOpen(false)} className="cursor-pointer px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancelar</button>
-              <button onClick={handleEnterPrivateLobby} className="cursor-pointer px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Entrar</button>
+              <button onClick={() => setIsPasswordModalOpen(false)} className="cursor-pointer px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">Cancelar</button>
+              <button onClick={handleEnterPrivateLobby} className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Entrar</button>
             </div>
           </div>
         </div>
       )}
+
       {isDeleteModalOpen && lobbyToDelete && (
-        <div className="fixed inset-0 backdrop-blur-sm bg-white/30 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-xl w-full max-w-sm text-black">
+        <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-900 text-white p-6 rounded-lg shadow-xl w-full max-w-sm">
             <div className="flex items-center gap-4 mb-4">
-              <div className="bg-red-100 p-2 rounded-full"><ExclamationTriangleIcon className="h-6 w-6 text-red-600" /></div>
+              <div className="bg-red-600 p-2 rounded-full"><ExclamationTriangleIcon className="h-6 w-6 text-white" /></div>
               <h3 className="text-xl font-bold">Confirmar Exclusão</h3>
             </div>
-            <p className="mb-6">Tem certeza que deseja deletar o lobby <span className="font-bold">"{lobbyToDelete.name}"</span>? Esta ação não pode ser desfeita.</p>
+            <p className="mb-6">Deseja deletar o lobby <strong>{lobbyToDelete.name}</strong>? Esta ação é irreversível.</p>
             <div className="flex justify-end gap-4">
-              <button onClick={() => setIsDeleteModalOpen(false)} className="cursor-pointer px-4 py-2 bg-gray-300 rounded-lg hover:bg-gray-400">Cancelar</button>
-              <button onClick={handleDeleteLobby} className="cursor-pointer px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700">Deletar</button>
+              <button onClick={() => setIsDeleteModalOpen(false)} className="cursor-pointer px-4 py-2 bg-gray-700 rounded hover:bg-gray-600">Cancelar</button>
+              <button onClick={handleDeleteLobby} className="cursor-pointer px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700">Deletar</button>
             </div>
           </div>
         </div>

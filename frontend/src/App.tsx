@@ -145,7 +145,6 @@ function App() {
         <Dashboard 
           onLogout={handleLogout}
           onEnterLobby={handleEnterLobby}
-          onBackToLanding={() => setShowLogin(false)}
         />
       )}
     </WebSocketProvider>

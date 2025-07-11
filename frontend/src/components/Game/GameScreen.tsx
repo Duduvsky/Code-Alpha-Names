@@ -39,13 +39,13 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
   const logEndRefDesktop = useRef<HTMLDivElement>(null);
   const logEndRefMobile = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (window.innerWidth >= 768) {
-      logEndRefDesktop.current?.scrollIntoView({ behavior: "smooth" });
-    } else {
-      logEndRefMobile.current?.scrollIntoView({ behavior: "smooth" });
-    }
-  }, [gameState?.log?.length]);
+  // useEffect(() => {
+  //   if (window.innerWidth >= 768) {
+  //     logEndRefDesktop.current?.scrollIntoView({ behavior: "smooth" });
+  //   } else {
+  //     logEndRefMobile.current?.scrollIntoView({ behavior: "smooth" });
+  //   }
+  // }, [gameState?.log?.length]);
 
   useEffect(() => {
     if (!isConnected || !ws) {
@@ -170,7 +170,7 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
   };
 
   return (
-    <div className="h-screen flex flex-col p-2 md:p-4 overflow-hidden bg-gray-900 text-white">
+    <div className="flex flex-col min-h-screen p-2 md:p-4 bg-gray-900 text-white relative">
       <div className="absolute inset-0 -z-10"><img src={imgBG} alt="Background" className="w-full h-full object-cover opacity-20" /></div>
       <div className="flex justify-between items-center pb-2 md:pb-4">
         <div className="text-lg font-bold">Jogadores: {gameState.players.length}</div>
@@ -208,7 +208,7 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
             { team: 'B', name: 'Vermelho', color: 'red', score: gameState.scores.B, spymaster: spymasterB, agents: teamB.filter(p => p.role === 'operative'), image: timeB }
           ].map(t => (
             <div key={t.team} className="flex flex-col bg-gray-800 bg-opacity-70 rounded shadow p-2 space-y-2 border border-gray-700">
-              <div className="flex h-[200px] justify-center overflow-hidden rounded"><img src={t.image} alt={`Time ${t.name}`} className="w-full h-full object-cover object-top" /></div>
+              <div className="flex h-[150px] justify-center overflow-hidden rounded"><img src={t.image} alt={`Time ${t.name}`} className="w-full h-full object-cover object-top" /></div>
               <div className={`flex justify-between items-center font-bold text-${t.color}-400`}><span>Time {t.name} (Faltam: {t.score})</span></div>
               <div className="flex items-center gap-1 text-xs">
                 <span className="whitespace-nowrap">Espião:</span>
@@ -298,14 +298,14 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
         <div className="hidden md:flex flex-col w-1/5 min-h-0 gap-4">
           <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded shadow p-2 flex-1 flex flex-col min-h-0">
             <div className="font-bold mb-2">Log do Jogo</div>
-            <div style={{ height: "300px" }} className="bg-gray-900 rounded p-2 overflow-y-auto text-sm space-y-1">
+            <div className="flex-1 min-h-0 bg-gray-900 rounded p-2 overflow-y-auto text-sm space-y-1">
               {(gameState.log || []).map((entry, i) => (
                 <div key={i}>{entry}</div>
               ))}
               <div ref={logEndRefDesktop} />
             </div>
           </div>
-          <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded shadow p-2 flex flex-col min-h-0 h-[450px]">
+          <div className="bg-gray-800 bg-opacity-70 border border-gray-700 rounded shadow p-2 flex flex-col min-h-0 h-[380px]">
             <div className="font-bold mb-2">Chat</div>
             <div className="flex-1 overflow-hidden">
               <Chat lobbyId={lobbyId} userId={userId} username={username} />
