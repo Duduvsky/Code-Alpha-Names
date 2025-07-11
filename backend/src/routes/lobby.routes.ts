@@ -9,7 +9,7 @@ const asyncHandler = (fn: any) => (req: any, res: any, next: any) =>
 router.post('/', asyncHandler(createLobby));
 router.get('/', asyncHandler(getLobbys));
 router.get('/:code', asyncHandler(getLobbyByCode));
-router.get('/:code/verify', asyncHandler(verifyLobby));
+router.post('/:code/verify', asyncHandler(verifyLobby));
 router.patch('/:id/size', asyncHandler(updateLobbySize));
 router.patch('/:id/duration', asyncHandler(updateLobbyDuration));
 router.get('/modes/all', asyncHandler(getGameModes));

@@ -105,7 +105,7 @@ export const getLobbys = async (req: Request, res: Response) => {
 // ===================================================================
 export const verifyLobby = async (req: Request, res: Response) => {
   const { code } = req.params;
-  const { password } = req.query;
+  const { password } = req.body;
 
   try {
     const result = await pool.query(
