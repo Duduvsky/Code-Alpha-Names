@@ -61,18 +61,18 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
   };
 
 
-  return (
-    <div className='w-99'>
+   return (
+    <div className="w-full">
       <h2 className="text-3xl font-bold text-gray-800 mb-2">Bem-vindo de volta</h2>
-      <p className="text-gray-600 mb-8">Faça login para continuar</p>
-      
+      <p className="text-gray-600 mb-6">Faça login para continuar</p>
+
       <form onSubmit={handleSubmit}>
         {error && (
           <div className="mb-4 p-3 bg-red-100 text-red-700 rounded-md">
             {error}
           </div>
         )}
-        
+
         <div className="mb-4">
           <label htmlFor="email" className="block text-gray-700 mb-2">
             Email
@@ -82,11 +82,11 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
             id="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="w-full p-3 border border-gray-300 rounded-lg"
             required
           />
         </div>
-        
+
         <div className="mb-6">
           <label htmlFor="password" className="block text-gray-700 mb-2">
             Senha
@@ -96,25 +96,25 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
             id="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+            className="w-full p-3 border border-gray-300 rounded-lg"
             required
           />
         </div>
-        
+
         <button
           type="submit"
           disabled={isLoading}
-          className="cursor-pointer w-full bg-blue-500 cursor-pointer text-white py-3 px-4 rounded-lg font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
+          className="w-full bg-blue-500 text-white py-3 px-4 rounded-lg font-bold hover:bg-blue-600 transition-colors disabled:opacity-50"
         >
           {isLoading ? 'Entrando...' : 'Entrar'}
         </button>
       </form>
-      
+
       <div className="mt-4 text-center">
         <button
           type="button"
           onClick={onSwitch}
-          className="cursor-pointer text-primary hover:underline"
+          className="text-primary hover:underline"
         >
           Não tem uma conta? Registre-se
         </button>
