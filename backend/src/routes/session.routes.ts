@@ -5,14 +5,12 @@ import { authenticateToken  } from '../middlewares/auth.middleware'; // Use seu 
 
 const router = Router();
 
-// <<< MUDANÇA 2: Crie uma constante para o handler com a tipagem correta
 const getSessionStateHandler: RequestHandler = async (req, res) => {
      const userId = (req as any).user?.id;
      
     if (!userId) {
-        // Esta checagem de segurança é boa, embora o middleware já proteja.
         res.status(401).json({ message: "Sessão de usuário inválida." });
-        return; // Apenas para sair da função
+        return; 
     }
 
     try {

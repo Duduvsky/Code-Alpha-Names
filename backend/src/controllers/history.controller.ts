@@ -10,7 +10,6 @@ export const getMatchHistory = async (req: Request, res: Response) => {
     }
 
     try {
-        // Query adaptada para a sua estrutura de tabelas
         const query = `
             SELECT
                 l.id AS "lobbyId",

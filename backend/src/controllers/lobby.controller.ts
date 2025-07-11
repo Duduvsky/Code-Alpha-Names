@@ -1,8 +1,6 @@
 import { Request, Response } from 'express';
 import { pool } from '../db';
-// ===================================================================
-// 1. IMPORTAR O GAME MANAGER
-// ===================================================================
+
 import { gameManager } from '../game/GameManager';
 
 const generateCode = (): string => {
@@ -78,15 +76,10 @@ export const getLobbys = async (req: Request, res: Response) => {
 
     const result = await pool.query(query, params);
 
-    // ===================================================================
-    // 2. ENRIQUECER OS DADOS DO LOBBY COM A LISTA DE JOGADORES
-    // ===================================================================
     const lobbiesWithPlayers = result.rows.map(lobby => {
-      // Tenta pegar a instância do jogo para qualquer lobby ativo
+
       const game = gameManager.getGame(lobby.code_lobby);
 
-      // Se a instância existir (ou seja, há jogadores na memória), adiciona os IDs.
-      // Se não, retorna o lobby como está.
       const playerIds = game ? game.getPlayerIds() : [];
 
       return { ...lobby, playerIds };
@@ -100,9 +93,6 @@ export const getLobbys = async (req: Request, res: Response) => {
   }
 };
 
-// ===================================================================
-// 3. NOVA ROTA PARA VERIFICAR SENHA SEM ENTRAR
-// ===================================================================
 export const verifyLobby = async (req: Request, res: Response) => {
   const { code } = req.params;
   const { password } = req.body;
@@ -132,8 +122,6 @@ export const verifyLobby = async (req: Request, res: Response) => {
   }
 };
 
-// ESTA ROTA FOI SUBSTITUÍDA PELA LÓGICA NO Game.ts, MAS PODE SER MANTIDA
-// PARA OUTROS USOS SE NECESSÁRIO, OU REMOVIDA.
 export const getLobbyByCode = async (req: Request, res: Response) => {
   const { code } = req.params;
   try {

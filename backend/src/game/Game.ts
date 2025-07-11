@@ -112,7 +112,6 @@ export class Game {
         this.fetchLobbyDbId();
     }
     
-    // <<< MUDANÇA PRINCIPAL AQUI >>>
     private checkEssentialRoles() {
         if (this.gamePhase === 'waiting' || this.gamePhase === 'ended') {
             return;
@@ -124,7 +123,6 @@ export class Game {
             const teamPlayers = Array.from(this.players.values()).filter(p => p.team === team);
             const teamName = team === 'A' ? 'Azul' : 'Vermelho';
     
-            // Verifica a presença de cada role essencial conectada.
             const hasConnectedSpymaster = teamPlayers.some(p => p.role === 'spymaster' && p.ws !== null);
             const hasConnectedOperatives = teamPlayers.some(p => p.role === 'operative' && p.ws !== null);
     
@@ -135,9 +133,8 @@ export class Game {
                 missingRoleMessage = `Todos os Agentes do Time ${teamName} desconectaram!`;
             }
     
-            // CONDIÇÃO DE PERIGO: Uma role essencial está faltando.
             if (missingRoleMessage) {
-                // Se já não houver um timer rodando para este time, inicie um.
+
                 if (!this.roleDisconnectTimers.has(team)) {
                     console.log(`[Game] Role essencial do Time ${teamName} desconectada. Iniciando timer de 30s.`);
                     
@@ -156,14 +153,12 @@ export class Game {
                         this.log.push(`❌ O Time ${teamName} não se recuperou a tempo. Fim de jogo!`);
                         const winningTeam = team === 'A' ? 'B' : 'A';
                         this.endGame(winningTeam);
-                    }, 30000); // 30 segundos
+                    }, 30000);
     
                     this.roleDisconnectTimers.set(team, timer);
                 }
             }
-            // CONDIÇÃO DE ALÍVIO: Todas as roles essenciais estão presentes.
             else {
-                // Se havia um timer rodando para este time, cancele-o.
                 if (this.roleDisconnectTimers.has(team)) {
                     console.log(`[Game] Roles do Time ${teamName} preenchidas. Cancelando timer.`);
                     

@@ -4,7 +4,7 @@ import { Game } from './Game';
 import { pool } from '../db';
 
 export class GameManager {
-    private games: Map<string, Game>; // lobbyId -> Game instance
+    private games: Map<string, Game>;
 
     constructor() {
         this.games = new Map();
@@ -14,15 +14,13 @@ export class GameManager {
         return this.games.get(lobbyId);
     }
 
-    // Quando um jogador se conecta via WebSocket
+
     public async addPlayer(lobbyId: string, ws: WebSocket) {
         let game = this.games.get(lobbyId);
 
         if (!game) {
             try {
-                // ===================================================================
-                // 1. QUERY MODIFICADA PARA BUSCAR AS REGRAS DO JOGO
-                // ===================================================================
+ 
                 const lobbyQuery = `
                     SELECT 
                         l.created_by,
@@ -43,9 +41,6 @@ export class GameManager {
                 const dbData = lobbyRes.rows[0];
                 const creatorId = dbData.created_by;
 
-                // ===================================================================
-                // 2. CRIAÇÃO DO OBJETO DE CONFIGURAÇÕES
-                // ===================================================================
                 const settings = {
                     roundDuration: dbData.round_duration,
                     blackCards: dbData.black_cards,
@@ -54,9 +49,6 @@ export class GameManager {
                 console.log(`[GameManager] Criando novo jogo para o lobby ${lobbyId} (Criador: ${creatorId})`);
                 console.log(`[GameManager] Configurações do modo:`, settings);
 
-                // ===================================================================
-                // 3. PASSANDO AS CONFIGURAÇÕES PARA O CONSTRUTOR DO JOGO
-                // ===================================================================
                 game = new Game(lobbyId, creatorId, settings);
                 this.games.set(lobbyId, game);
 
@@ -70,7 +62,6 @@ export class GameManager {
         game.addPlayer(ws);
     }
 
-    // Quando um jogador envia uma mensagem
     public handleMessage(lobbyId: string, ws: WebSocket, message: string) {
         const game = this.games.get(lobbyId);
         if (game) {
@@ -78,12 +69,10 @@ export class GameManager {
         }
     }
 
-    // Quando um jogador se desconecta
     public removePlayer(lobbyId: string, ws: WebSocket) {
         const game = this.games.get(lobbyId);
         if (game) {
             game.removePlayer(ws);
-            // Opcional: se o jogo ficar vazio, removê-lo
             if (game.isEmpty()) {
                 console.log(`[GameManager] Removendo jogo vazio do lobby ${lobbyId}`);
                 this.games.delete(lobbyId);
