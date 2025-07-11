@@ -27,7 +27,7 @@ const EventNotification = ({ message, type = "info", onClose }: EventNotificatio
       <span className="flex-1 text-md break-words pl-1">{message}</span>
       <button
         onClick={onClose}
-        className="ml-4 text-gray-500 hover:text-gray-700 font-bold hover:cursor-pointer"
+        className="cursor-pointer ml-4 text-gray-500 hover:text-gray-700 font-bold hover:cursor-pointer"
       >
         X
       </button>
