@@ -52,8 +52,8 @@ const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
 
   return (
     <div className="w-full">
-      <h2 className="text-3xl font-bold text-gray-800 mb-2">Crie sua conta</h2>
-      <p className="text-gray-600 mb-6">Junte-se à nossa comunidade</p>
+      <h2 className="text-3xl font-bold text-white mb-2">Crie sua conta</h2>
+      <p className="text-white mb-6">Junte-se à nossa comunidade</p>
 
       <form onSubmit={handleSubmit}>
         {error && (
@@ -64,7 +64,7 @@ const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
 
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 mb-4">
-            <label htmlFor="name" className="block text-gray-700 mb-2">
+            <label htmlFor="name" className="block text-white mb-2">
               Nome completo
             </label>
             <input
@@ -72,12 +72,12 @@ const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
               id="name"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg"
+              className="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white"
               required
             />
           </div>
           <div className="flex-1 mb-4">
-            <label htmlFor="email" className="block text-gray-700 mb-2">
+            <label htmlFor="email" className="block text-white mb-2">
               Email
             </label>
             <input
@@ -85,7 +85,7 @@ const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
               id="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg"
+              className="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white"
               required
             />
           </div>
@@ -93,7 +93,7 @@ const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
 
         <div className="flex flex-col md:flex-row gap-4">
           <div className="flex-1 mb-4">
-            <label htmlFor="password" className="block text-gray-700 mb-2">
+            <label htmlFor="password" className="block text-white mb-2">
               Senha
             </label>
             <input
@@ -101,13 +101,13 @@ const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
               id="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg"
+              className="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white"
               required
               minLength={6}
             />
           </div>
           <div className="flex-1 mb-4">
-            <label htmlFor="confirmPassword" className="block text-gray-700 mb-2">
+            <label htmlFor="confirmPassword" className="block text-white mb-2">
               Confirmar senha
             </label>
             <input
@@ -115,7 +115,7 @@ const RegisterForm = ({ onSwitch }: RegisterFormProps) => {
               id="confirmPassword"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full p-3 border border-gray-300 rounded-lg"
+              className="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white"
               required
               minLength={6}
             />

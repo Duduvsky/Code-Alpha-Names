@@ -63,8 +63,8 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
 
    return (
     <div className="w-full">
-      <h2 className="text-3xl font-bold text-gray-800 mb-2">Bem-vindo de volta</h2>
-      <p className="text-gray-600 mb-6">Faça login para continuar</p>
+      <h2 className="text-3xl font-bold text-white mb-2">Bem-vindo de volta</h2>
+      <p className="text-white mb-6">Faça login para continuar</p>
 
       <form onSubmit={handleSubmit}>
         {error && (
@@ -74,7 +74,7 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
         )}
 
         <div className="mb-4">
-          <label htmlFor="email" className="block text-gray-700 mb-2">
+          <label htmlFor="email" className="block text-white mb-2">
             Email
           </label>
           <input
@@ -82,13 +82,13 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
             id="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg"
+            className="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white"
             required
           />
         </div>
 
         <div className="mb-6">
-          <label htmlFor="password" className="block text-gray-700 mb-2">
+          <label htmlFor="password" className="block text-white mb-2">
             Senha
           </label>
           <input
@@ -96,7 +96,7 @@ const LoginForm = ({ onSwitch, onLogin }: LoginFormProps) => {
             id="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="w-full p-3 border border-gray-300 rounded-lg"
+            className="w-full p-3 border border-gray-600 rounded-lg bg-gray-800 text-white"
             required
           />
         </div>
