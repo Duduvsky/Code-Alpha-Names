@@ -384,7 +384,7 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
               <ul className="list-disc list-inside text-gray-300">
                 <li>Espião: 1 minuto</li>
                 <li>Agentes: 1 minuto</li>
-                <li>Cartas: 8 Azuis, 7 Vermelhas, 4 Pretas, 4 Neutras</li>
+                <li>Cartas: 9 Azuis, 8 Vermelhas, 4 Pretas, 4 Neutras</li>
               </ul>
             </div>
             <div className="bg-gray-900 p-4 rounded border border-gray-700">
