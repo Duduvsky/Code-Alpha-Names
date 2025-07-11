@@ -36,6 +36,13 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
 
   const [displayTime, setDisplayTime] = useState<number | null>(null);
   const localTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const logRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (logRef.current) {
+      logRef.current.scrollTop = logRef.current.scrollHeight;
+    }
+  }, [gameState?.log]);
 
   useEffect(() => {
     if (!isConnected || !ws) {
@@ -180,7 +187,14 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
             <div key={t.team} className="flex flex-col bg-gray-800 bg-opacity-70 rounded shadow p-2 space-y-2 border border-gray-700">
               <div className="flex h-[200px] justify-center overflow-hidden rounded"><img src={t.image} alt={`Time ${t.name}`} className="w-full h-full object-cover object-top" /></div>
               <div className={`flex justify-between items-center font-bold text-${t.color}-400`}><span>Time {t.name} (Faltam: {t.score})</span></div>
-              <div className="text-xs">Espião: {t.spymaster?.username || 'Vago'}</div>
+              <div className="flex items-center gap-1 text-xs">
+                <span className="whitespace-nowrap">Espião:</span>
+                {t.spymaster?.username ? (
+                    <span className="bg-gray-600 px-2 py-0.5 rounded whitespace-nowrap">{t.spymaster.username}</span>
+                  ) : (
+                    <span className="text-gray-400">Vago</span>
+                  )}
+              </div>
               <div className="flex items-center gap-1 text-xs">
                 <span className="whitespace-nowrap">Agentes:</span>
                 <div className="flex flex-wrap gap-1">{t.agents.map(p => (<span key={p.id} className="bg-gray-600 px-2 py-0.5 rounded whitespace-nowrap">{p.username}</span>))}</div>
@@ -250,7 +264,9 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
           <button className={`cursor-pointer flex-1 p-2 text-sm font-medium ${activeMobileTab === "chat" ? "text-blue-400 border-b-2 border-blue-400" : "text-gray-400"}`} onClick={() => setActiveMobileTab("chat")}>Chat</button>
         </div>
         <div className="flex-1 bg-gray-800 rounded-b-lg shadow-sm overflow-hidden">
-          <div className={`h-full ${activeMobileTab !== "log" ? "hidden" : ""} overflow-y-auto text-xs p-2 space-y-1`}>{[...(gameState.log || [])].reverse().map((entry, i) => <div key={i}>{entry}</div>)}</div>
+          <div ref={logRef} className="flex-1 bg-gray-900 rounded p-2 overflow-y-auto text-sm space-y-1">
+            {(gameState.log || []).map((entry, i) => <div key={i}>{entry}</div>)}
+          </div>
           <div className={`h-full ${activeMobileTab !== "chat" ? "hidden" : ""}`}><Chat lobbyId={lobbyId} userId={userId} username={username} /></div>
         </div>
       </div>
