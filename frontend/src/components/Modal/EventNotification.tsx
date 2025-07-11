@@ -22,7 +22,6 @@ const EventNotification = ({ message, type = "info", onClose }: EventNotificatio
 
   return (
     <div className="relative flex items-center bg-white text-black px-4 py-3 mb-2 rounded-lg shadow animate-fade-slide overflow-hidden">
-      {/* Detalhe colorido colado no canto esquerdo */}
       <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${getAccentColor()}`}></div>
       <span className="flex-1 text-md break-words pl-1">{message}</span>
       <button

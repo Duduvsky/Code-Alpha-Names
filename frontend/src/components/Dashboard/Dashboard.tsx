@@ -3,7 +3,6 @@ import CreateLobbyModal from "./CreateLobbyModal";
 import { useNotification } from "../Modal/useNotification"; 
 import { LockClosedIcon, ExclamationTriangleIcon } from '@heroicons/react/24/solid';
 
-// Tipos permanecem os mesmos
 type Difficulty = "Fácil" | "Normal" | "Difícil" | "HARDCORE";
 
 interface Lobby {
@@ -26,14 +25,12 @@ interface MatchHistoryItem {
   finishedAt: string;
 }
 
-// Interface de props ajustada para receber as funções do GameRouter
 interface DashboardProps {
   onLogout: () => void;
   onEnterLobby: (lobbyId: string, difficulty: Difficulty) => void;
 }
 
 const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
-  // Estados internos permanecem os mesmos
   const [searchCode, setSearchCode] = useState("");
   const username = localStorage.getItem("username") || "Usuário";
   const userId = localStorage.getItem("userId");
@@ -54,7 +51,6 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [lobbyToDelete, setLobbyToDelete] = useState<Lobby | null>(null);
 
-  // A lógica de busca de dados permanece a mesma
   const fetchLobbys = useCallback(async () => {
     try {
       const url = searchCode ? `/api/lobbys?search=${searchCode}` : `/api/lobbys`;
@@ -96,10 +92,6 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
     return () => clearInterval(interval);
   }, [searchCode, fetchLobbys, fetchMatchHistory]);
 
-
-  // ==========================================================
-  // ALTERAÇÃO #1: handleCreateLobby agora chama onEnterLobby
-  // ==========================================================
   const handleCreateLobby = async () => {
     if (!lobbyName.trim()) {
       notify("Por favor, dê um nome ao seu lobby.", "info");
@@ -133,8 +125,6 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
       setLobbyPassword("");
       notify("Lobby criado com sucesso!", "success");
       
-      // AQUI ESTÁ A MUDANÇA: Em vez de redirecionar, informamos o componente pai (GameRouter)
-      // que o usuário deve entrar neste lobby.
       onEnterLobby(data.code_lobby, data.difficulty_name);
 
     } catch (err: unknown) {
@@ -143,8 +133,6 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
     }
   };
 
-  // Nenhuma alteração necessária aqui, pois a lógica de decidir se pede senha ou entra direto
-  // já culmina na chamada de onEnterLobby ou na abertura do modal. Perfeito.
   const attemptToEnterLobby = (lobby: Lobby) => {
     const isUserInThisLobby = lobby.playerIds?.includes(userId || '-1');
     if (lobby.is_private && !isUserInThisLobby) {
@@ -155,16 +143,11 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
     }
   };
 
-  // ==========================================================
-  // ALTERAÇÃO #2: handleEnterPrivateLobby também chama onEnterLobby
-  // E usa a nova rota de verificação que você criou no backend.
-  // ==========================================================
   const handleEnterPrivateLobby = async () => {
     if (!selectedLobby) return;
     try {
-      // Usando a rota de verificação do seu backend
       const response = await fetch(`/api/lobbys/${selectedLobby.code_lobby}/verify`, {
-        method: 'POST', // ou 'GET', dependendo de como você definiu em lobby.routes.ts
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: enteredPassword })
       });
@@ -174,7 +157,6 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
         throw new Error(data.message || "Senha incorreta ou erro ao verificar lobby.");
       }
       
-      // Se a senha estiver correta, limpa os modais e informa o GameRouter para entrar no lobby.
       setIsPasswordModalOpen(false);
       setEnteredPassword("");
       onEnterLobby(selectedLobby.code_lobby, selectedLobby.difficulty_name);
@@ -185,13 +167,7 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
     }
   };
 
-  // ==========================================================
-  // ALTERAÇÃO #3: handleLogout agora chama a prop onLogout
-  // Isso centraliza a lógica de logout no GameRouter.
-  // ==========================================================
   const handleLogout = () => {
-    // A chamada à API pode permanecer aqui ou ser movida para o GameRouter,
-    // mas o importante é chamar a prop para que o estado global seja limpo.
     fetch(`/api/auth/logout`, { method: 'POST', credentials: 'include' })
       .catch(error => console.error("Erro no fetch de logout:", error))
       .finally(() => {
@@ -199,7 +175,6 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
       });
   };
 
-  // Lógica de exclusão permanece a mesma, pois não afeta a navegação.
   const openDeleteConfirmation = (lobby: Lobby) => {
     setLobbyToDelete(lobby);
     setIsDeleteModalOpen(true);
@@ -229,13 +204,6 @@ const Dashboard = ({ onLogout, onEnterLobby}: DashboardProps) => {
   };
 
   const difficultyOptions: Difficulty[] = ["Fácil", "Normal", "Difícil", "HARDCORE"];
-
-  // ==========================================================
-  // ALTERAÇÃO #4: A renderização do botão de Voltar/Entrar
-  // agora funciona perfeitamente graças às mudanças no backend.
-  // A lógica que você já tinha aqui estava CORRETA e não precisa de mudanças.
-  // ==========================================================
-
 
   return (
     <div className="min-h-screen bg-gray-900 text-white p-4 md:p-8 relative overflow-hidden">

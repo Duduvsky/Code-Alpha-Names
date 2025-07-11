@@ -1,17 +1,14 @@
 import React, { createContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
-// Não exporte estes. Eles serão usados apenas internamente e pelo hook.
 export interface WebSocketContextType {
     ws: WebSocket | null;
     isConnected: boolean;
     sendMessage: (type: string, payload: unknown) => void;
 }
 
-// Não exporte o contexto diretamente.
 const WebSocketContext = createContext<WebSocketContextType | undefined>(undefined);
 
-// Deixe o hook usá-lo importando-o (o que já fazemos)
 export { WebSocketContext };
 
 interface WebSocketProviderProps {
@@ -19,10 +16,7 @@ interface WebSocketProviderProps {
     children: ReactNode;
 }
 
-// Exporte APENAS o Provider como default ou nomeado
 export const WebSocketProvider: React.FC<WebSocketProviderProps> = ({ url, children }) => {
-    // ... seu código do provider está perfeito, não precisa mudar nada aqui ...
-    // ...
     const [isConnected, setIsConnected] = useState(false);
     const ws = useRef<WebSocket | null>(null);
 

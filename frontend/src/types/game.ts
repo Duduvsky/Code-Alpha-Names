@@ -1,12 +1,9 @@
-// src/types/game.ts
-
 export type Team = 'A' | 'B';
 export type PlayerRole = 'spymaster' | 'operative';
 export type GamePhase = 'waiting' | 'giving_clue' | 'guessing' | 'ended';
 
 export interface CardState {
     word: string;
-    // O backend envia 'hidden' para agentes antes de revelar
     color: 'blue' | 'red' | 'neutral' | 'assassin' | 'hidden';
     revealed: boolean;
 }

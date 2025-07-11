@@ -1,8 +1,5 @@
-// src/components/Chat/Chat.tsx
-
 import { useEffect, useRef, useState } from 'react';
 
-// Interface da Mensagem (pode ser movida para um arquivo de tipos no futuro)
 interface Message {
     userId: string;
     username: string;
@@ -10,7 +7,6 @@ interface Message {
     timestamp: Date;
 }
 
-// Props que o componente recebe do GameScreen
 interface ChatProps {
     lobbyId: string;
     userId: string;
@@ -30,9 +26,7 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
         return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     };
 
-    // Este useEffect gerencia a conexão WebSocket do chat de forma independente.
     useEffect(() => {
-        // Constrói a URL dinamicamente para passar pelo Nginx
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
         const socketUrl = `${protocol}//${host}/ws/chat/${lobbyId}?userId=${userId}&username=${encodeURIComponent(username)}`;
@@ -73,15 +67,12 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
             console.log(`[Chat] Conexão WebSocket fechada. Código: ${event.code}`);
         };
 
-        // Função de limpeza: Fecha a conexão quando o componente é desmontado
         return () => {
             console.log('[Chat] Desmontando componente e fechando a conexão WebSocket.');
             socket.close();
         };
-        // As dependências garantem que uma nova conexão seja feita se o usuário ou lobby mudar.
     }, [lobbyId, userId, username]);
 
-    // Efeito para rolar para a última mensagem
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [messages]);
@@ -97,7 +88,6 @@ export default function Chat({ lobbyId, userId, username }: ChatProps) {
     };
 
     return (
-        // Aplicando o estilo da sua versão antiga que funcionava
         <div className="flex flex-col h-full min-h-0 bg-gray-900 text-white">
             <div className="flex-1 min-h-0 overflow-y-auto p-2 md:p-4 space-y-2">
                 {messages.map((msg, index) => (

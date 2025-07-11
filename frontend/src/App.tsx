@@ -7,7 +7,6 @@ import LandingPage from "./components/LadingPage/LandingPage";
 import { useMultiTabPrevention } from "./hooks/useMultiTabPrevention";
 import { MultiTabBlocker } from "./components/Game/MultiTabBlocker";
 
-// --- Tipos para clareza ---
 type Difficulty = "Fácil" | "Normal" | "Difícil" | "HARDCORE";
 
 interface ActiveLobby {
@@ -15,21 +14,17 @@ interface ActiveLobby {
   difficulty: Difficulty;
 }
 
-// --- Componente principal ---
 function App() {
   const sessionState = useMultiTabPrevention();
 
-  // --- Estado Centralizado ---
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [activeLobby, setActiveLobby] = useState<ActiveLobby | null>(null);
   const [authStatus, setAuthStatus] = useState<'checking' | 'checked'>('checking');
   const [showLogin, setShowLogin] = useState(false);
 
-  // --- Lógica de Inicialização (Roda uma única vez) ---
   useEffect(() => {
     const initializeApp = async () => {
       try {
-        // 1. Primeiro, autentica para saber QUEM é o usuário
         const authRes = await fetch(`/api/auth/me`, { credentials: 'include' });
 
         if (authRes.ok) {
@@ -38,14 +33,11 @@ function App() {
           localStorage.setItem("username", userData.username);
           setIsAuthenticated(true);
 
-          // <<< MUDANÇA PRINCIPAL AQUI >>>
-          // 2. Se autenticado, pergunta ao SERVIDOR onde o usuário deveria estar.
           console.log("[App] Usuário autenticado. Verificando estado da sessão no servidor...");
           const sessionRes = await fetch(`/api/session/state`, { credentials: 'include' });
           
           if (sessionRes.ok) {
             const sessionData = await sessionRes.json();
-            // Se o servidor retornar um lobby ativo, atualizamos nosso estado.
             if (sessionData.activeLobby) {
               console.log("[App] Servidor informou lobby ativo. Restaurando sessão para:", sessionData.activeLobby);
               setActiveLobby(sessionData.activeLobby);
@@ -54,7 +46,6 @@ function App() {
             }
           }
         } else {
-          // Se a autenticação falhar, limpa tudo.
           handleLogout(false);
         }
       } catch (err) {
@@ -67,51 +58,35 @@ function App() {
     initializeApp();
   }, []);
 
-  // --- Handlers de Ações ---
   const handleLoginSuccess = () => {
-    // Após o login, a página vai recarregar ou a lógica de inicialização
-    // vai rodar novamente, então só precisamos atualizar o estado de autenticação.
-    // Para forçar a verificação de sessão, podemos simplesmente recarregar.
     window.location.reload();
   };
   
-  // <<< MUDANÇA >>>
-  // O handleLogout continua importante para limpar o estado LOCAL do React.
   const handleLogout = (performApiCall = true) => {
     if (performApiCall) {
-      // O backend DEVE limpar o `current_lobby_code` do usuário na rota de logout.
-      // Se não fizer, adicione essa lógica lá.
       fetch(`/api/auth/logout`, { method: 'POST', credentials: 'include' }).catch(console.error);
     }
     localStorage.removeItem("userId");
     localStorage.removeItem("username");
-    // Não precisamos mais mexer em chaves de lobby no localStorage/sessionStorage.
     setIsAuthenticated(false);
     setActiveLobby(null);
     setShowLogin(false);
   };
   
-  // <<< MUDANÇA >>>
-  // Esta função agora é muito mais simples. Ela apenas atualiza o estado do React
-  // para mudar a tela. O backend já foi notificado pelo WebSocket e já atualizou o DB.
   const handleEnterLobby = (lobbyId: string, difficulty: Difficulty) => {
     console.log(`[App] Entrando no lobby ${lobbyId}. Atualizando estado da UI.`);
     setActiveLobby({ id: lobbyId, difficulty });
   };
   
-  // <<< MUDANÇA >>>
-  // Esta função também fica mais simples. Apenas limpa o estado do React.
   const handleExitLobby = () => {
     console.log("[App] Saindo do lobby. Limpando estado da UI.");
     setActiveLobby(null);
   };
 
-  // --- Derivação de Variáveis (sem mudança aqui) ---
   const gameWsUrl = activeLobby
     ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}/ws/game/${activeLobby.id}`
     : null;
 
-  // --- Lógica de Renderização (sem mudança aqui) ---
   if (sessionState === 'BLOCKED') {
     return <MultiTabBlocker />;
   }

@@ -132,7 +132,6 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
   const handlePassTurn = () => sendMessage('PASS_TURN', {});
   const handleLeaveTeam = () => sendMessage('LEAVE_TEAM', {});
 
-  // Função para sair voluntariamente DURANTE o jogo
   const handleLeaveGameManually = () => {
     sendMessage('EXIT_LOBBY', {});
     onExit();

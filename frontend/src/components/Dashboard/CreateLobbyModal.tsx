@@ -1,8 +1,5 @@
 import { useEffect, useState } from "react";
 
-// ===================================================================
-// CORREÇÃO 1: Alinhar o tipo com o que o Dashboard e o BD esperam.
-// ===================================================================
 type Difficulty = "Fácil" | "Normal" | "Difícil" | "HARDCORE";
 
 interface CreateLobbyModalProps {
@@ -11,12 +8,10 @@ interface CreateLobbyModalProps {
   lobbyDifficulty: Difficulty;
   setLobbyDifficulty: (difficulty: Difficulty) => void;
   difficultyOptions?: Difficulty[];
-  // CORREÇÃO 2: Adicionar as props de senha que estavam faltando.
   lobbyPassword: string;
   setLobbyPassword: (password: string) => void;
   onClose: () => void;
   onConfirm: () => void;
-  // Prop opcional para passar as opções, mas vamos focar em buscar da API.
 }
 
 const CreateLobbyModal = ({
@@ -24,12 +19,11 @@ const CreateLobbyModal = ({
   setLobbyName,
   lobbyDifficulty,
   setLobbyDifficulty,
-  lobbyPassword,      // Recebendo a prop
-  setLobbyPassword,   // Recebendo a prop
+  lobbyPassword,      
+  setLobbyPassword,   
   onClose,
   onConfirm,
 }: CreateLobbyModalProps) => {
-  // O tipo do estado interno agora usa o tipo Difficulty corrigido.
   const [gameModes, setGameModes] = useState<{ id: number; mode: Difficulty }[]>([]);
 
   useEffect(() => {
