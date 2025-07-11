@@ -62,8 +62,8 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
       try {
         const message = JSON.parse(event.data);
         switch (message.type) {
-          case 'GAME_STATE_UPDATE': 
-            setGameState(message.payload); 
+          case 'GAME_STATE_UPDATE':
+            setGameState(message.payload);
             break;
           case 'LOBBY_CLOSED':
             notify(message.payload.reason, "info");
@@ -77,11 +77,11 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
             }
             break;
           }
-          case 'CREATOR_DISCONNECTED_WARNING': 
-            notify(message.payload.message, "info"); 
+          case 'CREATOR_DISCONNECTED_WARNING':
+            notify(message.payload.message, "info");
             break;
-          case 'CREATOR_RECONNECTED': 
-            notify(message.payload.message, "success"); 
+          case 'CREATOR_RECONNECTED':
+            notify(message.payload.message, "success");
             break;
           case 'ESSENTIAL_ROLE_DISCONNECTED':
             notify(message.payload.message, "info");
@@ -97,7 +97,7 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
     };
 
     ws.addEventListener('message', handleMessage);
-    
+
     return () => {
       ws.removeEventListener('message', handleMessage);
       joinedWsRef.current = null;
@@ -209,14 +209,17 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
           ].map(t => (
             <div key={t.team} className="flex flex-col bg-gray-800 bg-opacity-70 rounded shadow p-2 space-y-2 border border-gray-700">
               <div className="flex h-[200px] justify-center overflow-hidden rounded"><img src={t.image} alt={`Time ${t.name}`} className="w-full h-full object-cover object-top" /></div>
-              <div className={`flex justify-between items-center font-bold text-${t.color}-400`}><span>Time {t.name} (Faltam: {t.score})</span></div>
+              <div className={`flex justify-between items-center font-bold ${t.color === 'blue' ? 'text-blue-400' : 'text-red-400'
+                }`}>
+                <span>Time {t.name} (Faltam: {t.score})</span>
+              </div>
               <div className="flex items-center gap-1 text-xs">
                 <span className="whitespace-nowrap">Espião:</span>
                 {t.spymaster?.username ? (
-                    <span className="bg-gray-600 px-2 py-0.5 rounded whitespace-nowrap">{t.spymaster.username}</span>
-                  ) : (
-                    <span className="text-gray-400">Vago</span>
-                  )}
+                  <span className="bg-gray-600 px-2 py-0.5 rounded whitespace-nowrap">{t.spymaster.username}</span>
+                ) : (
+                  <span className="text-gray-400">Vago</span>
+                )}
               </div>
               <div className="flex items-center gap-1 text-xs">
                 <span className="whitespace-nowrap">Agentes:</span>
@@ -232,9 +235,9 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
         <div className="flex-1 min-h-0 flex flex-col items-center">
           <div className="flex justify-center items-center gap-4 font-bold mb-2 text-lg">
             <span>
-              {gameState.gamePhase === 'waiting' ? ( 'Escolha seu time' ) : 
-               gameState.gamePhase === 'ended' ? ( `FIM DE JOGO!` ) : 
-               ( `Turno: Time ${currentTeamName}` )
+              {gameState.gamePhase === 'waiting' ? ('Escolha seu time') :
+                gameState.gamePhase === 'ended' ? (`FIM DE JOGO!`) :
+                  (`Turno: Time ${currentTeamName}`)
               }
             </span>
             {displayTime !== null && gameState.gamePhase !== 'ended' && gameState.gamePhase !== 'waiting' && (
@@ -262,10 +265,10 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
           </div>
           <div className="mt-4 w-full max-w-lg">
             {(() => {
-              if (gameState.gamePhase === 'waiting') { 
-                return (<div className="bg-gray-700 p-3 rounded-lg shadow-md text-center">Aguardando o host iniciar a partida...</div>); 
+              if (gameState.gamePhase === 'waiting') {
+                return (<div className="bg-gray-700 p-3 rounded-lg shadow-md text-center">Aguardando o host iniciar a partida...</div>);
               }
-              if (gameState.gamePhase === 'ended') { 
+              if (gameState.gamePhase === 'ended') {
                 const winnerName = gameState.winner === 'A' ? 'Azul' : 'Vermelho';
                 const didIWin = me?.team === gameState.winner;
                 return (
@@ -276,7 +279,7 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
                     <p className="text-lg mb-4">
                       O Time {winnerName} venceu a partida!
                     </p>
-                    <button 
+                    <button
                       onClick={onExit}
                       className="cursor-pointer px-6 py-2 bg-gray-200 text-black font-bold rounded-lg hover:bg-white transition-colors"
                     >
@@ -285,11 +288,11 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
                   </div>
                 );
               }
-              if (isMyTurnToGiveClue) { 
-                return (<div className="flex justify-center gap-2 flex-wrap items-center bg-gray-800 p-3 rounded-lg shadow-md"><span className="font-medium">Sua vez de dar a dica:</span><input type="text" value={clueWord} onChange={e => setClueWord(e.target.value)} placeholder="Dica..." className="p-2 border rounded bg-gray-700 border-gray-600 w-32" /><input type="number" value={clueCount} onChange={e => setClueCount(Number(e.target.value))} min={1} max={9} className="p-2 border rounded bg-gray-700 border-gray-600 w-16" /><button onClick={handleGiveClue} className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Enviar</button></div>); 
+              if (isMyTurnToGiveClue) {
+                return (<div className="flex justify-center gap-2 flex-wrap items-center bg-gray-800 p-3 rounded-lg shadow-md"><span className="font-medium">Sua vez de dar a dica:</span><input type="text" value={clueWord} onChange={e => setClueWord(e.target.value)} placeholder="Dica..." className="p-2 border rounded bg-gray-700 border-gray-600 w-32" /><input type="number" value={clueCount} onChange={e => setClueCount(Number(e.target.value))} min={1} max={9} className="p-2 border rounded bg-gray-700 border-gray-600 w-16" /><button onClick={handleGiveClue} className="cursor-pointer px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">Enviar</button></div>);
               }
-              if (gameState.currentClue) { 
-                return (<div className={`p-3 rounded-lg shadow-md text-center space-y-2 border-2 transition-colors duration-300 ${turnPanelClass()}`}><div>Dica: <span className="font-bold">{gameState.currentClue.word} ({gameState.currentClue.count})</span><span className="text-gray-300 mx-2">|</span>Tentativas Restantes: <span className="font-bold">{gameState.guessesRemaining}</span></div>{isMyTurnToGuess ? (<div className="flex justify-center items-center gap-4"><span className="block text-sm font-semibold">Sua vez de adivinhar!</span><button onClick={handlePassTurn} className="cursor-pointer flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-500 transition-colors"><ForwardIcon className="h-4 w-4" />Passar a Vez</button></div>) : (me?.team === gameState.currentTurn ? (<span className="block text-sm">Aguardando seu time adivinhar...</span>) : (<span className="block text-sm">Aguardando o time {currentTeamName} adivinhar...</span>))}</div>); 
+              if (gameState.currentClue) {
+                return (<div className={`p-3 rounded-lg shadow-md text-center space-y-2 border-2 transition-colors duration-300 ${turnPanelClass()}`}><div>Dica: <span className="font-bold">{gameState.currentClue.word} ({gameState.currentClue.count})</span><span className="text-gray-300 mx-2">|</span>Tentativas Restantes: <span className="font-bold">{gameState.guessesRemaining}</span></div>{isMyTurnToGuess ? (<div className="flex justify-center items-center gap-4"><span className="block text-sm font-semibold">Sua vez de adivinhar!</span><button onClick={handlePassTurn} className="cursor-pointer flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-xs rounded-lg hover:bg-gray-500 transition-colors"><ForwardIcon className="h-4 w-4" />Passar a Vez</button></div>) : (me?.team === gameState.currentTurn ? (<span className="block text-sm">Aguardando seu time adivinhar...</span>) : (<span className="block text-sm">Aguardando o time {currentTeamName} adivinhar...</span>))}</div>);
               }
               return (<div className="bg-gray-700 p-3 rounded-lg shadow-md text-center">Aguardando dica do espião do time {currentTeamName}...</div>);
             })()}
@@ -317,21 +320,19 @@ const GameScreen = ({ onExit, lobbyId, userId, username }: GameScreenProps) => {
       <div className="md:hidden flex flex-col mt-4" style={{ height: '35vh' }}>
         <div className="flex border-b border-gray-700">
           <button
-            className={`cursor-pointer flex-1 p-2 text-sm font-medium ${
-              activeMobileTab === "log"
+            className={`cursor-pointer flex-1 p-2 text-sm font-medium ${activeMobileTab === "log"
                 ? "text-blue-400 border-b-2 border-blue-400"
                 : "text-gray-400"
-            }`}
+              }`}
             onClick={() => setActiveMobileTab("log")}
           >
             Log
           </button>
           <button
-            className={`cursor-pointer flex-1 p-2 text-sm font-medium ${
-              activeMobileTab === "chat"
+            className={`cursor-pointer flex-1 p-2 text-sm font-medium ${activeMobileTab === "chat"
                 ? "text-blue-400 border-b-2 border-blue-400"
                 : "text-gray-400"
-            }`}
+              }`}
             onClick={() => setActiveMobileTab("chat")}
           >
             Chat
